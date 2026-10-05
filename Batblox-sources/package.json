@@ -1,0 +1,64 @@
+{
+  "name": "batblox",
+  "productName": "Batblox",
+  "version": "1.5.0",
+  "description": "Batblox : centre de contrôle Roblox pour Windows (launcher, amis, profils suivis, historique, statistiques, notifications).",
+  "main": "src/main/main.js",
+  "author": "Batblox",
+  "license": "UNLICENSED",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test test/core.test.js",
+    "dist": "electron-builder --win nsis portable --x64 --publish never",
+    "dist:dir": "electron-builder --win dir --x64"
+  },
+  "dependencies": {},
+  "optionalDependencies": {
+    "discord-rpc": "^4.0.1"
+  },
+  "devDependencies": {
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "app.batblox.desktop",
+    "productName": "Batblox",
+    "copyright": "Batblox",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "src/**/*",
+      "package.json"
+    ],
+    "win": {
+      "icon": "build/icon.ico",
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "language": "1036",
+      "shortcutName": "Batblox",
+      "artifactName": "Batblox-Setup-${version}.${ext}"
+    },
+    "portable": {
+      "artifactName": "Batblox-Portable-${version}.${ext}"
+    }
+  },
+  "homepage": "https://github.com/BatStream-off/Batblox",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/BatStream-off/Batblox.git"
+  },
+  "bugs": {
+    "url": "https://github.com/BatStream-off/Batblox/issues"
+  }
+}
