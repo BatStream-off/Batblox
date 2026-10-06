@@ -5,7 +5,7 @@
 **Le centre de contrôle Roblox pour Windows.**
 Lanceur, amis, profils suivis, historique, statistiques et notifications dans une seule application, entièrement en français.
 
-![Version](https://img.shields.io/badge/version-1.5.0-2563F2)
+![Version](https://img.shields.io/badge/version-1.5.1-2563F2)
 ![Plateforme](https://img.shields.io/badge/plateforme-Windows-0078D4)
 ![Electron](https://img.shields.io/badge/Electron-33-47848F)
 
@@ -78,10 +78,10 @@ build/         icônes de l'installeur
 
 1. Change `version` dans `package.json` (par exemple `1.6.0`).
 2. Commit, puis crée et pousse le tag correspondant :
-```bash
+   ```bash
    git tag v1.6.0
    git push origin main --tags
-```
+   ```
 3. Le workflow GitHub Actions (`.github/workflows/release.yml`) construit l'installeur et la version portable, puis crée la release avec les fichiers.
 4. Les utilisateurs reçoivent la mise à jour via le bouton **Réglages → Mises à jour**.
 
