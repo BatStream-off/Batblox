@@ -1162,3 +1162,41 @@ img, svg, a, button { -webkit-user-drag: none; user-drag: none; }
 /* Bandeaux : le texte et le bouton passent sur deux lignes plutôt que de déborder. */
 .notice { flex-wrap: wrap; row-gap: 8px; min-width: 0; overflow-wrap: anywhere; }
 
+/* =====================================================================================
+   v1.5.3 — corrections de cohérence graphique
+   ===================================================================================== */
+
+/* Statuts d'amis : même convention PARTOUT (gris = hors ligne, bleu = en ligne, vert = en jeu), comme sur Roblox.
+   Avant, la liste d'amis, la carte Roblox et les statistiques affichaient « en ligne » en vert et « en jeu » en bleu,
+   alors que les ronds de l'accueil faisaient l'inverse. */
+.dot.s-on { background: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,.20), inset 1px 1px 2px rgba(255,255,255,.45); }
+.dot.s-game { background: #22c55e; box-shadow: 0 0 0 3px rgba(34,197,94,.20), inset 1px 1px 2px rgba(255,255,255,.45); }
+.dot.s-off { background: #8b92a6; box-shadow: none; }
+.av.ring.en_ligne { box-shadow: 0 0 0 2px var(--card), 0 0 0 4px #3b82f6; }
+.av.ring.jeu, .av.ring.studio { box-shadow: 0 0 0 2px var(--card), 0 0 0 4px #22c55e; }
+
+/* Tuiles d'onglets / compteurs : un grand nombre ou un long titre ne déborde plus de sa tuile */
+button.tabtile > div:last-child { min-width: 0; flex: 1 1 auto; }
+button.tabtile b { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+button.tabtile b.tt { font-size: 20px; font-weight: 700; letter-spacing: -.01em; }
+
+/* Découvrir : recherche + bouton restent sur une seule ligne, alignés comme sur les autres pages */
+.page > header .actions.inline { flex-wrap: nowrap; align-items: center; }
+.page > header .actions.inline input[type=search] { width: 250px; max-width: 250px; flex: 0 1 250px; min-width: 120px; }
+
+/* Comptes : la rangée de boutons passe sous le nom au lieu de l'écraser */
+.acc-card { flex-wrap: wrap; row-gap: 12px; }
+.acc-card > .grow { flex: 1 1 240px; min-width: 0; overflow-wrap: anywhere; }
+.acc-card > .acc-actions { flex: 0 1 auto; margin-left: auto; justify-content: flex-end; }
+
+/* Rangée d'amis : le bouton « Rejoindre » ne dépasse jamais de sa bulle (thème Batman : majuscules + espacement) */
+.fbub .btn { max-width: 100%; white-space: nowrap; }
+:root[data-theme="batman"] .fbub .btn.pri { letter-spacing: .02em; font-size: 10px; padding: 2px 7px; }
+:root[data-theme="batman"] h1 { letter-spacing: .06em; font-size: 22px; }
+.tabs button.tabtile { padding: 14px 12px; gap: 10px; }
+.tabs button.tabtile .stat-ico { width: 36px; height: 36px; flex: none; }
+.tabs button.tabtile span { font-size: 12px; }
+.tabs button.tabtile b { font-size: 24px; }
+.tabs button.tabtile b.tt { font-size: 19px; }
+@media (max-width: 1040px) { .tabs button.tabtile b.tt { font-size: 16px; } }
+

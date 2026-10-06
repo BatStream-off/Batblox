@@ -8,8 +8,8 @@ B.pages.watch = {
     await this.draw();
   },
   async draw() {
-    const root = B.clear(this.root);
     const list = await B.run(() => B.call("watch:list")) || [];
+    const root = B.clear(this.root); // vidé APRÈS l'attente : deux rafraîchissements qui se chevauchent ne dupliquent plus les cartes
     const input = h("input", { type: "text", placeholder: "Pseudo ou identifiant Roblox", "aria-label": "Pseudo ou identifiant", onkeydown: (e) => { if (e.key === "Enter") add(); } });
     const add = async () => {
       const v = input.value.trim(); if (!v) return;
@@ -21,7 +21,13 @@ B.pages.watch = {
     root.append(h("div", { class: "card" }, h("div", { class: "row" }, input, h("button", { class: "btn pri", onclick: add }, "➕ Ajouter"))));
     if (!list.length) { root.append(h("div", { class: "card empty" }, "Aucun profil suivi. Ajoute un joueur avec son pseudo ou son identifiant, ou clique sur « Suivre » sur un ami.")); return; }
     for (const w of list) {
-      const opt = (k, label) => h("label", { class: "row small", style: "gap:6px" }, B.switch(w[k], async (v) => { await B.run(() => B.call("watch:update", { id: w.id, patch: { [k]: v } })); w[k] = v; }, label), label);
+      // interrupteur + libellé cliquable, sans <label> imbriqué dans un <label>
+      const opt = (k, label) => {
+        const sw = B.switch(w[k], async (v) => { await B.run(() => B.call("watch:update", { id: w.id, patch: { [k]: v } })); w[k] = v; }, label);
+        const id = "w-" + w.id + "-" + k;
+        sw.querySelector("input").id = id;
+        return h("div", { class: "row small", style: "gap:6px" }, sw, h("label", { for: id, style: "cursor:pointer" }, label));
+      };
       root.append(h("div", { class: "card" }, h("div", { class: "row" }, B.avatar(w.id, w.name, "lg"),
         h("div", { class: "grow" }, h("b", {}, w.name), h("div", { class: "muted small" }, (w.count != null ? w.count + " ami(s) · " : "") + (w.paused ? "en pause" : w.error ? w.error : "suivi actif"),
           w.live ? " · " + B.statusLabel(w.live) + (w.live === "jeu" && w.place ? " — " + w.place : "") : "")),

@@ -21,22 +21,24 @@ B.pages.friends = {
       h("div", { class: "chips" }, [["tous", "Tous"], ["en_ligne", "En ligne"], ["jeu", "En jeu"], ["hors_ligne", "Hors ligne"], ["suivis", "Suivis"]].map(([v, l]) => h("button", { class: "chip" + (this.filter === v ? " on" : ""), onclick: () => { this.filter = v; this.draw(); } }, l))));
     root.append(bar, h("div", { class: "card list", id: "fl" }));
     this.drawList();
+    const tok = (this.idleTok = (this.idleTok || 0) + 1);
     B.call("friends:idle").then((idle) => {
-      if (!idle.length) return;
+      if (!idle || !idle.length || tok !== this.idleTok || root.querySelector(".notice")) return;
       const n = h("div", { class: "notice" }, `${idle.length} ami(s) suivi(s) n'ont pas été vus en ligne depuis ${mon.idleDays} jours : `,
         h("button", { class: "btn sm", onclick: () => this.triage(idle) }, "Faire le tri"));
       root.insertBefore(n, root.children[1]);
     }).catch(() => {});
   },
   rank: { jeu: 0, studio: 1, en_ligne: 2, inconnu: 3, hors_ligne: 4 },
+  rk(f) { return this.rank[f.status] === undefined ? 3 : this.rank[f.status]; },
   drawList() {
     const box = B.$("#fl"); if (!box) return;
     B.clear(box);
     const q = this.q.trim().toLowerCase();
-    let l = this.list.filter((f) => (!q || f.name.toLowerCase().includes(q)) && (this.filter === "tous" || (this.filter === "suivis" ? f.tracked : this.filter === "en_ligne" ? f.status === "en_ligne" || f.status === "studio" : f.status === this.filter)));
-    if (this.sort === "nom") l.sort((a, b) => a.name.localeCompare(b.name, "fr"));
-    else if (this.sort === "dernière activité") l.sort((a, b) => (b.lastOn || 0) - (a.lastOn || 0));
-    else l.sort((a, b) => this.rank[a.status] - this.rank[b.status] || a.name.localeCompare(b.name, "fr"));
+    let l = this.list.filter((f) => (!q || String(f.name || "").toLowerCase().includes(q)) && (this.filter === "tous" || (this.filter === "suivis" ? f.tracked : this.filter === "en_ligne" ? f.status === "en_ligne" || f.status === "studio" : f.status === this.filter)));
+    if (this.sort === "nom") l.sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), "fr"));
+    else if (this.sort === "dernière activité") { const act = (f) => (f.status === "jeu" || f.status === "studio" || f.status === "en_ligne" ? Number.MAX_SAFE_INTEGER : Number(f.lastOn) || 0); l.sort((a, b) => act(b) - act(a)); }
+    else l.sort((a, b) => this.rk(a) - this.rk(b) || String(a.name || "").localeCompare(String(b.name || ""), "fr"));
     if (!l.length) { box.append(h("div", { class: "empty" }, this.list.length ? "Aucun ami ne correspond." : "Ta liste d'amis apparaîtra après la première vérification.")); return; }
     for (const f of l.slice(0, 300)) {
       const sub = f.status === "jeu" ? "🎮 " + (f.place || "En jeu") : f.status === "hors_ligne" ? "Dernière activité : " + (f.lastOn ? B.ago(f.lastOn) : "inconnue") : B.statusLabel(f.status);

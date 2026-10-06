@@ -56,7 +56,7 @@ B.pages.messages = {
       this.syncBadge();
     } catch (e) { this.listErr = e.message; if (!silent) B.fail(e); }
     this.loading = false;
-    if (this.root && this.root.isConnected) this.drawList();
+    if (this.root && this.root.isConnected) { this.drawList(); if (!this.cur) this.drawThread(); } // met à jour le texte du panneau vide (« Choisis une conversation… »)
     if (!more) this.prefetch();
   },
 

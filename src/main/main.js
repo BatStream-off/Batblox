@@ -3,7 +3,7 @@ const path = require("path");
 const fs = require("fs");
 const { execFile } = require("child_process");
 const crypto = require("crypto");
-const { app, BrowserWindow, Tray, Menu, Notification, ipcMain, dialog, shell, session, safeStorage, nativeImage, net } = require("electron");
+const { app, BrowserWindow, Tray, Menu, Notification, ipcMain, dialog, shell, session, safeStorage, nativeImage, nativeTheme, net } = require("electron");
 
 const { Storage } = require("./core/storage");
 const { DEFAULT_SETTINGS, merge, DISCORD_RE, NTFY_TOPIC_RE, PROXY_DOMAIN_RE, trackPatch } = require("./core/defaults");
@@ -178,9 +178,17 @@ function desktopNotify(title, body, { sound } = {}) {
 }
 
 // ---------------------------------------------------------------- Fenêtre principale
+// Couleur de fond de la fenêtre avant que l'interface ne s'affiche : celle du thème choisi (évite un flash sombre avec un thème clair).
+const THEME_BG = { light: "#E4E8FA", dark: "#161930", bat: "#0D0A1E", joker: "#0F0720", batman: "#0A0B0D", inde: "#FFF6E8" };
+function windowBg() {
+  let t = settings.appearance && settings.appearance.theme;
+  if (t === "auto" || !THEME_BG[t]) t = nativeTheme.shouldUseDarkColors ? "dark" : "light";
+  return THEME_BG[t];
+}
+
 function createWindow(hidden) {
   win = new BrowserWindow({
-    width: 1180, height: 780, minWidth: 900, minHeight: 600, show: !hidden, title: "Batblox", icon: ICON, backgroundColor: "#0b0c10", autoHideMenuBar: true,
+    width: 1180, height: 780, minWidth: 900, minHeight: 600, show: !hidden, title: "Batblox", icon: ICON, backgroundColor: windowBg(), autoHideMenuBar: true,
     webPreferences: { preload: path.join(__dirname, "preload.js"), contextIsolation: true, sandbox: true, nodeIntegration: false, spellcheck: false }
   });
   win.setMenuBarVisibility(false);
@@ -217,7 +225,7 @@ function buildTrayMenu() {
     { label: "Ouvrir Batblox", click: showWindow },
     { label: "Vérifier maintenant", click: () => monitor.checkAll({ force: true }) },
     { label: snap.paused ? "Reprendre le monitoring" : "Mettre le monitoring en pause", click: () => toggleMonitoring() },
-    { label: "Lancer Roblox", click: () => { showWindow(); send("navigate", "home"); } },
+    { label: "Lancer Roblox", click: () => { showWindow(); send("launch"); } },
     { type: "separator" },
     { label: "Quitter", click: () => { quitting = true; app.quit(); } }
   ]);
@@ -245,7 +253,7 @@ async function avatarsFor(ids) {
   const now = Date.now();
   for (const id of ids.map(String).filter((x) => /^\d+$/.test(x)).slice(0, 200)) {
     const c = avatarCache.get(id);
-    if (c && now - c.ts < 3600000) out[id] = c.url; else need.push(id);
+    if (c && now - c.ts < (c.url ? 3600000 : 120000)) { if (c.url) out[id] = c.url; } else need.push(id);
   }
   const client = accounts.activeClient();
   if (need.length && client && !client.isLimited("thumbnails.roblox.com")) {
@@ -528,7 +536,7 @@ const api = {
     setSettings(sanitize(merge(settings, patch)));
     app.setLoginItemSettings({ openAtLogin: !!settings.system.launchAtStartup, args: ["--cache"] });
     if (before.monitoring.intervalSec !== settings.monitoring.intervalSec || before.monitoring.enabled !== settings.monitoring.enabled) monitor.kick(800);
-    rpc.sync().then(() => send("rpc", rpc.state()));
+    rpc.sync().then(() => send("rpc", rpc.state())).catch(() => {});
     refreshTray();
     send("settings", settings);
     return settings;
@@ -623,7 +631,7 @@ const api = {
   "friends:idle": () => monitor.idleFriends(),
   "friends:stats": (id) => friendStats(String(id)),
 
-  "watch:list": () => Object.entries(monitor.watched.profiles).map(([id, w]) => Object.assign({ id, count: w.snapshot ? Object.keys(w.snapshot).length : null }, { name: w.name, friends: w.friends, status: w.status, conn: w.conn, paused: w.paused, error: w.error || null, live: monitor.live[id] ? (monitor.live[id].type === 2 ? "jeu" : monitor.live[id].type >= 1 ? "en_ligne" : "hors_ligne") : null, place: monitor.live[id] ? monitor.live[id].place : "" })),
+  "watch:list": () => Object.entries(monitor.watched.profiles).map(([id, w]) => Object.assign({ id, count: w.snapshot ? Object.keys(w.snapshot).length : null }, { name: w.name, friends: w.friends, status: w.status, conn: w.conn, paused: w.paused, error: w.error || null, live: monitor.live[id] ? (monitor.live[id].type === 2 ? "jeu" : monitor.live[id].type === 3 ? "studio" : monitor.live[id].type >= 1 ? "en_ligne" : "hors_ligne") : null, place: monitor.live[id] ? monitor.live[id].place : "" })),
   "watch:add": ({ query, opts }) => monitor.addWatched(query, opts),
   "watch:update": ({ id, patch }) => monitor.updateWatched(String(id), patch || {}),
   "watch:remove": (id) => monitor.removeWatched(String(id)),
@@ -677,6 +685,7 @@ const api = {
     return { paths: r.filePaths, previews };
   },
   "custom:apply": ({ kind, paths }) => custom.apply(kind, paths),
+  "custom:reapply": (kind) => custom.reapply(kind),
   "custom:restore": (kind) => custom.restore(kind),
   "custom:forget": (kind) => custom.forget(kind),
 
@@ -795,7 +804,7 @@ async function boot() {
   monitor.on("history", (entries) => send("history", entries.length));
 
   monitor.start();
-  rpc.sync();
+  Promise.resolve(rpc.sync()).catch(() => {});
   maintenance.autoClean();
   if (settings.launcher.autoReapplyCustom) setTimeout(() => custom.reapplyIfNeeded(), 4000);
   setInterval(() => accounts.persistCookies().catch(() => {}), 30 * 60 * 1000).unref();

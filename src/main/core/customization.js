@@ -75,6 +75,16 @@ class Customization {
     return this.status();
   }
 
+  /** Réactive une personnalisation « Désactivée » ou « à réappliquer » à partir des fichiers déjà importés (sans les reselectionner). */
+  reapply(kind) {
+    if (!KINDS[kind]) throw new Error("Type de personnalisation inconnu.");
+    const a = this.reg.applied[kind];
+    const files = a && Array.isArray(a.sources) ? a.sources.filter(Boolean) : [];
+    if (!files.length) throw new Error("Aucun fichier mémorisé : importe-en un d'abord.");
+    if (files.some((f) => !fs.existsSync(f))) throw new Error("Le fichier importé n'existe plus à son emplacement d'origine : importe-le à nouveau.");
+    return this.apply(kind, files);
+  }
+
   restore(kind) {
     const a = this.reg.applied[kind];
     if (!a) return this.status();

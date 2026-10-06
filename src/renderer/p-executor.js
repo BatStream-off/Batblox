@@ -30,7 +30,7 @@ B.pages.executor = {
   },
 
   tile(it, i, n) {
-    const ico = h("span", { class: "exe-ico" }, it.icon ? h("img", { src: it.icon, alt: "" }) : (it.name.charAt(0).toUpperCase() || "?"));
+    const ico = h("span", { class: "exe-ico" }, it.icon ? h("img", { src: it.icon, alt: "" }) : B.initial(it.name));
     const launch = async () => {
       if (!it.found) { B.toast("« " + it.name + " » est introuvable à l'emplacement enregistré.", "bad"); return; }
       const r = await B.run(() => B.call("executor:launch", it.id));

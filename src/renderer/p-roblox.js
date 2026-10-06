@@ -15,7 +15,7 @@ B.pages.roblox = {
   drawClient(s) {
     const box = B.$("#r-client"); if (!box) return; B.clear(box);
     const cur = s.client || "auto";
-    const opts = [{ id: "auto", name: "Automatique", found: true }].concat(s.clients, [{ id: "custom", name: "Personnalisé…", found: true }]);
+    const opts = [{ id: "auto", name: "Automatique", found: true }].concat(s.clients || [], [{ id: "custom", name: "Personnalisé…", found: true }]);
     const apply = async (o) => {
       if (o.id === "custom") { const p = await B.run(() => B.call("launcher:pickExe")); if (!p) return; await B.set({ launcher: { client: "custom", customExe: p } }); }
       else await B.set({ launcher: { client: o.id } });
@@ -27,7 +27,7 @@ B.pages.roblox = {
       h("div", { class: "chips" }, opts.map((o) => h("button", { class: "chip" + (cur === o.id ? " on" : ""), disabled: !o.found, title: o.found ? "" : "Non détecté sur ce PC", onclick: () => apply(o) },
         o.name + (!["auto", "custom"].includes(o.id) ? (o.found ? " ✓" : " (non détecté)") : "")))),
       h("div", { class: "muted small", style: "margin-top:10px" }, hint),
-      s.chosenOk === false ? h("div", { class: "notice bad", style: "margin-top:10px" }, "Ce lanceur est introuvable : choisis-en un autre ou repasse sur « Automatique ».") : null,
+      ...(s.chosenOk === false ? [h("div", { class: "notice bad", style: "margin-top:10px" }, "Ce lanceur est introuvable : choisis-en un autre ou repasse sur « Automatique ».")] : []),
       h("div", { class: "muted small", style: "margin-top:8px" }, "Fishstrap, Voidstrap et les autres se détectent s'ils sont dans %LOCALAPPDATA%. Pour tout autre lanceur, utilise « Personnalisé… »."));
   },
   async drawUpdate(force) {
@@ -84,10 +84,10 @@ B.pages.accounts = {
     if (!list.length) { p.append(h("div", { class: "card empty" }, "Aucun compte. Ajoute ton premier compte Roblox pour commencer.")); return; }
     for (const a of list) {
       const [cls, txt] = STATUS[a.status] || STATUS.erreur;
-      p.append(h("div", { class: "card" }, h("div", { class: "row" }, B.avatar(a.id, a.label, "lg", a.avatarUrl),
+      p.append(h("div", { class: "card" }, h("div", { class: "row acc-card" }, B.avatar(a.id, a.label, "lg", a.avatarUrl),
         h("div", { class: "grow" }, h("div", { class: "row" }, h("span", { class: "dot " + cls }), h("b", {}, a.label), a.active ? h("span", { class: "pill" }, "actif") : null, a.isDefault ? h("span", { class: "pill" }, "par défaut") : null),
           h("div", { class: "muted small" }, "@" + a.name + " · " + txt + (a.checkedAt ? " · vérifié " + B.ago(a.checkedAt) : ""))),
-        h("div", { class: "row wrap", style: "justify-content:flex-end" },
+        h("div", { class: "row wrap acc-actions" },
           a.active ? null : h("button", { class: "btn sm pri", onclick: () => B.run(() => B.call("accounts:use", a.id)) }, "Utiliser"),
           h("button", { class: "btn sm", onclick: () => this.rename(a) }, "Modifier"),
           h("button", { class: "btn sm", onclick: async () => { await B.run(() => B.call("accounts:check", a.id)); B.toast("Vérification terminée.", "ok"); } }, "Vérifier"),
@@ -114,6 +114,7 @@ B.pages.custom = {
   },
   async draw() {
     const p = B.clear(this.root);
+    (this.fontStyles || []).forEach((n) => n.remove()); this.fontStyles = [];
     const st = await B.run(() => B.call("custom:status"));
     p.append(h("header", {}, h("div", {}, h("h1", {}, "Personnalisation"), h("div", { class: "muted" }, "Son de mort, police et curseurs du client Roblox."))));
     p.append(h("div", { class: "notice" }, "Batblox sauvegarde chaque fichier d'origine avant de le remplacer : tu peux toujours désactiver ou restaurer. Une mise à jour de Roblox remet les fichiers d'origine (Batblox peut les réappliquer). Ces modifications portent sur des fichiers locaux de Roblox, qui ne les prend pas officiellement en charge : à utiliser en connaissance de cause."));
@@ -128,12 +129,17 @@ B.pages.custom = {
         if (!pv.url) { prev.append(h("span", { class: "muted small" }, pv.name)); continue; }
         if (kind === "sound") prev.append(h("div", {}, h("div", { class: "small" }, pv.name), h("audio", { controls: true, src: pv.url, "aria-label": "Aperçu du son" })));
         else if (kind === "cursor") prev.append(h("div", { class: "row small" }, h("img", { src: pv.url, alt: "", style: "max-width:48px;max-height:48px;image-rendering:pixelated;background:var(--card2);padding:4px;border-radius:6px" }), pv.name));
-        else { const fam = "prev" + Math.random().toString(36).slice(2, 8); const st2 = document.createElement("style"); st2.textContent = `@font-face{font-family:${fam};src:url(${pv.url})}`; document.head.append(st2); prev.append(h("div", { style: `font-family:${fam},sans-serif;font-size:22px` }, "Batblox — Portez ce vieux whisky au juge blond qui fume. 0123456789")); }
+        else { const fam = "prev" + Math.random().toString(36).slice(2, 8); const st2 = document.createElement("style"); st2.textContent = `@font-face{font-family:${fam};src:url(${pv.url})}`; document.head.append(st2); this.fontStyles.push(st2); prev.append(h("div", { style: `font-family:${fam},sans-serif;font-size:22px` }, "Batblox — Portez ce vieux whisky au juge blond qui fume. 0123456789")); }
       }
       card.append(prev);
       card.append(h("div", { class: "row wrap", style: "margin-top:12px" },
         h("button", { class: "btn", onclick: async () => { const r = await B.run(() => B.call("custom:pick", kind)); if (r) { this.chosen[kind] = r; this.draw(); } } }, "📂 Importer…"),
-        h("button", { class: "btn pri", disabled: !ch && !it.source.length, onclick: async () => { const paths = ch ? ch.paths : null; if (!paths) return B.toast("Importe d'abord un fichier.", "bad"); const r = await B.run(() => B.call("custom:apply", { kind, paths })); if (r) { delete this.chosen[kind]; B.toast(it.label + " appliqué.", "ok"); this.draw(); } } }, "Appliquer"),
+        h("button", { class: "btn pri", disabled: !ch && (!it.source.length || (it.active && !it.outdated)), title: ch ? "" : it.source.length ? "Réappliquer le fichier déjà importé" : "Importe d'abord un fichier",
+          onclick: async () => {
+            // fichier fraîchement importé → on l'applique ; sinon on réapplique la source mémorisée (après « Désactiver » ou une mise à jour de Roblox)
+            const r = await B.run(() => ch ? B.call("custom:apply", { kind, paths: ch.paths }) : B.call("custom:reapply", kind));
+            if (r) { delete this.chosen[kind]; B.toast(it.label + (ch ? " appliqué." : " réappliqué."), "ok"); this.draw(); }
+          } }, ch ? "Appliquer" : it.source.length ? "Réappliquer" : "Appliquer"),
         h("button", { class: "btn", disabled: !it.active, onclick: async () => { await B.run(() => B.call("custom:restore", kind)); B.toast(it.label + " désactivé : fichiers d'origine restaurés.", "ok"); this.draw(); } }, "Désactiver"),
         h("button", { class: "btn", disabled: !it.source.length, onclick: async () => { if (await B.confirm("Restaurer les fichiers d'origine et oublier cette personnalisation ?", "Restaurer")) { await B.run(() => B.call("custom:forget", kind)); this.draw(); } } }, "Restaurer")));
       p.append(card);
@@ -171,16 +177,16 @@ B.pages.maint = {
   },
   integrityIdle() {
     const b = B.clear(B.$("#m-int"));
-    b.append(h("h2", {}, "🛡️ Intégrité"), h("div", { class: "muted small" }, "Contrôle la présence du client et de ses dossiers, et si ta version est à jour. Rien n'est affiché tant que la vérification n'a pas été faite."),
+    b.append(h("h2", {}, "Intégrité"), h("div", { class: "muted small" }, "Contrôle la présence du client et de ses dossiers, et si ta version est à jour. Rien n'est affiché tant que la vérification n'a pas été faite."),
       h("div", { class: "row", style: "margin-top:10px" }, h("button", { class: "btn pri", onclick: () => this.integrity() }, "Vérifier maintenant")));
   },
   async integrity() {
     const b = B.clear(B.$("#m-int"));
-    b.append(h("h2", {}, "🛡️ Intégrité"), h("div", { class: "row" }, h("span", { class: "dot game" }), "Vérification en cours…"));
+    b.append(h("h2", {}, "Intégrité"), h("div", { class: "row" }, h("span", { class: "dot game" }), "Vérification en cours…"));
     const r = await B.run(() => B.call("maint:integrity")); if (!r) return this.integrityIdle();
     B.clear(b);
     const cls = r.state === "OK" ? "ok" : "bad";
-    b.append(h("div", { class: "row" }, h("h2", { class: "grow" }, "🛡️ Intégrité"), h("span", { class: "pill " + cls }, r.state)));
+    b.append(h("div", { class: "row" }, h("h2", { class: "grow" }, "Intégrité"), h("span", { class: "pill " + cls }, r.state)));
     b.append(h("div", { style: "margin:6px 0" }, r.percent == null ? h("span", { class: "muted" }, "Aucun contrôle n'a pu être effectué.") : h("div", {}, h("b", {}, `${r.ok} / ${r.total} contrôles réussis`), h("div", { class: "bar", style: "margin-top:6px" }, h("i", { style: `width:${r.percent}%` })))));
     for (const c of r.checks) b.append(h("div", { class: "row small", style: "padding:3px 0" }, h("span", { class: c.state === "ok" ? "ok" : c.state === "inconnu" ? "muted" : "bad" }, c.state === "ok" ? "✓" : c.state === "inconnu" ? "?" : "✗"), h("span", {}, c.label), c.detail ? h("span", { class: "muted" }, "— " + c.detail) : null));
     if (r.modified.length) b.append(h("div", { class: "notice", style: "margin-top:10px" }, `${r.modified.length} fichier(s) personnalisé(s) par Batblox (restaurables depuis « Personnalisation »).`));
@@ -225,7 +231,7 @@ B.pages.maint = {
     const M = B.S.settings.maintenance;
     b.append(h("div", { class: "cache-opts" },
       B.row("Nettoyage automatique", "Au démarrage de Batblox, si le cache dépasse la taille ci-dessous (Roblox doit être fermé).", B.switch(M.autoClean, (v) => B.set({ maintenance: { autoClean: v } }), "Nettoyage automatique")),
-      B.row("Seuil (Mo)", null, h("input", { type: "number", min: 50, max: 20000, value: M.autoCleanMb, "aria-label": "Seuil en mégaoctets", onchange: (e) => B.set({ maintenance: { autoCleanMb: Number(e.target.value) } }) }))));
+      B.row("Seuil (Mo)", null, h("input", { type: "number", min: 50, max: 20000, value: M.autoCleanMb, "aria-label": "Seuil en mégaoctets", onchange: async (e) => { const i = e.target; await B.set({ maintenance: { autoCleanMb: Number(i.value) } }); i.value = B.S.settings.maintenance.autoCleanMb; } }))));
   },
   async logs(show) {
     const b = B.clear(B.$("#m-log"));

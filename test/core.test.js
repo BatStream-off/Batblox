@@ -378,6 +378,62 @@ test("personnalisation : sauvegarde, application, restauration, réapplication a
   assert.equal(fs.readFileSync(path.join(v2, "content/sounds/ouch.ogg"), "utf8"), "MIEN");
 });
 
+test("personnalisation : réactivation depuis la source mémorisée (sans réimporter)", () => {
+  const dir = tmp();
+  const d = path.join(dir, "Versions", "version-1"); fs.mkdirSync(path.join(d, "content", "sounds"), { recursive: true });
+  fs.writeFileSync(path.join(d, "RobloxPlayerBeta.exe"), "x"); fs.writeFileSync(path.join(d, "content", "sounds", "ouch.ogg"), "ORIGINAL");
+  const launcher = new RobloxLauncher({ env: { LOCALAPPDATA: dir }, platform: "win32", execFile() {}, openExternal() {}, accounts: {}, monitor: {}, logger });
+  launcher.roots = () => [path.join(dir, "Versions")];
+  const custom = new Customization({ storage: new Storage(tmp(), { delay: 5 }), launcher, logger, dataDir: tmp() });
+  assert.throws(() => custom.reapply("sound"), /Aucun fichier mémorisé/);
+  assert.throws(() => custom.reapply("inconnu"), /inconnu/);
+  const mine = path.join(tmp(), "mon.ogg"); fs.writeFileSync(mine, "MIEN");
+  custom.apply("sound", [mine]);
+  custom.restore("sound");
+  assert.equal(custom.status().items.sound.active, false);
+  assert.equal(fs.readFileSync(path.join(d, "content/sounds/ouch.ogg"), "utf8"), "ORIGINAL");
+  custom.reapply("sound");
+  assert.equal(custom.status().items.sound.active, true);
+  assert.equal(fs.readFileSync(path.join(d, "content/sounds/ouch.ogg"), "utf8"), "MIEN");
+  custom.restore("sound"); fs.unlinkSync(mine);
+  assert.throws(() => custom.reapply("sound"), /n'existe plus/);
+});
+
+test("interface : initiales (accents, emojis), grands nombres et octets en français", () => {
+  const src = fs.readFileSync(path.join(__dirname, "../src/renderer/lib.js"), "utf8");
+  const grab = (name) => { const m = src.match(new RegExp("^B\\." + name + " = .*$", "m")); assert.ok(m, "B." + name + " introuvable"); return m[0]; };
+  const B = {}; new Function("B", ["num", "numShort", "initial", "bytes"].map(grab).join("\n"))(B);
+  assert.equal(B.initial("Équipe Blox"), "É");
+  assert.equal(B.initial("[🎃 HALLOWEEN] Adopt Me!"), "H");
+  assert.equal(B.initial("🍕🍕"), "🍕");
+  assert.equal(B.initial(""), "?"); assert.equal(B.initial(null), "?");
+  assert.equal(B.numShort(1234567), "1,23\u00a0M"); assert.equal(B.numShort(123456), "123\u00a0k");
+  assert.equal(B.numShort(12345), B.num(12345)); assert.equal(B.numShort(null), "—");
+  assert.equal(B.bytes(734003200), "700,0 Mo"); assert.equal(B.bytes(2048), "2 Ko"); assert.equal(B.bytes(5368709120), "5,00 Go");
+});
+
+test("interface : aucun append() natif ne reçoit null (sinon le mot « null » s'affiche à l'écran)", () => {
+  const dir = path.join(__dirname, "../src/renderer"); const bad = [];
+  for (const f of fs.readdirSync(dir).filter((x) => x.endsWith(".js"))) {
+    const src = fs.readFileSync(path.join(dir, f), "utf8"); const re = /\.(append|prepend)\(/g; let m;
+    while ((m = re.exec(src))) {
+      let i = re.lastIndex, depth = 1, str = null, cur = "", args = [];
+      for (; i < src.length && depth > 0; i++) {
+        const c = src[i];
+        if (str) { cur += c; if (c === "\\") cur += src[++i]; else if (c === str) str = null; continue; }
+        if (c === '"' || c === "'" || c === "`") { str = c; cur += c; }
+        else if ("([{".includes(c)) { depth++; cur += c; }
+        else if (")]}".includes(c)) { depth--; if (depth > 0) cur += c; }
+        else if (c === "," && depth === 1) { args.push(cur.trim()); cur = ""; }
+        else cur += c;
+      }
+      args.push(cur.trim());
+      for (const a of args) if (/\?[^?]*:\s*(null|undefined)$/.test(a) || /^(B\.sparkline|B\.chartSummary)\b/.test(a)) bad.push(f + ":" + src.slice(0, m.index).split("\n").length + " → " + a.slice(-70));
+    }
+  }
+  assert.deepEqual(bad, []);
+});
+
 test("maintenance : cache mesuré / nettoyé, intégrité sans faux 100 %", async () => {
   const local = tmp();
   fs.mkdirSync(path.join(local, "Roblox", "logs"), { recursive: true });

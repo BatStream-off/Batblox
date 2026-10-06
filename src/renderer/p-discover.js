@@ -12,7 +12,7 @@ B.pages.discover = {
       oninput: (e) => { this.q = e.target.value; clearTimeout(this.qt); this.qt = setTimeout(() => this.search(), 300); },
       onkeydown: (e) => { if (e.key === "Enter") { clearTimeout(this.qt); this.search(); } } });
     p.append(h("header", {}, h("div", {}, h("h1", {}, "Découvrir"), h("div", { class: "muted" }, "Tous les jeux Roblox : recherche, classements et suggestions.")),
-      h("div", { class: "actions" }, q, h("button", { class: "btn", id: "d-ref", onclick: () => this.loadHome(true) }, "🔄 Actualiser"))));
+      h("div", { class: "actions inline" }, q, h("button", { class: "btn", id: "d-ref", onclick: () => this.loadHome(true) }, "🔄 Actualiser"))));
     p.append(h("div", { id: "d-chips", class: "chips", style: "margin-bottom:14px" }), h("div", { id: "d-body" }));
     if (this.view === "home" || !this.data) { this.view = "home"; await this.loadHome(false); } else { this.chips(); this.draw(); }
   },
@@ -72,7 +72,7 @@ B.pages.discover = {
   },
   tile(g) {
     const isFav = (B.S.settings.launcher.favorites || []).some((f) => f.placeId === g.pid);
-    const cover = h("div", { class: "tile-cover", "data-pid": g.pid }, (g.name.trim()[0] || "?").toUpperCase());
+    const cover = h("div", { class: "tile-cover", "data-pid": g.pid }, B.initial(g.name));
     const known = g.icon || this.icons[g.pid];
     if (known) { const img = h("img", { src: known, alt: "", decoding: "async" }); img.onload = () => { B.clear(cover); cover.append(img); cover.classList.add("img"); }; }
     const meta = [g.players ? "👥 " + (g.players >= 10000 ? Math.round(g.players / 1000) + " k" : B.num(g.players)) : null, g.likes != null ? "👍 " + g.likes + " %" : null].filter(Boolean).join(" · ");
@@ -127,7 +127,7 @@ B.pages.discover = {
       const list = h("div", { class: "rail" });
       const covers = {};
       for (const g of fr) {
-        const cover = h("div", { class: "tile-cover" }, (g.name.trim()[0] || "?").toUpperCase());
+        const cover = h("div", { class: "tile-cover" }, B.initial(g.name));
         if (g.pid) (covers[g.pid] = covers[g.pid] || []).push(cover);
         const joinable = g.friends.find((f) => f.canJoin);
         list.append(h("div", { class: "tile" }, cover,
