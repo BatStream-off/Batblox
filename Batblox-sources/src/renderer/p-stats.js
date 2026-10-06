@@ -59,7 +59,7 @@ B.pages.stats = {
       oninput: (e) => { const q = e.target.value.trim().toLowerCase(); box.querySelectorAll(".chip").forEach((c) => { c.style.display = !q || c.classList.contains("on") || c.dataset.n.includes(q) ? "" : "none"; }); } }) : null;
     return h("div", { class: "card whobar" }, h("div", { class: "row wrap who-head" }, h("span", { class: "muted small" }, "Statistiques de"), filter, h("span", { class: "grow" }),
       h("button", { class: "btn pri", onclick: () => this.addPerson() }, "➕ Suivre quelqu'un")), box,
-      people.length ? null : h("div", { class: "muted small", style: "margin-top:10px" }, "Tu ne suis personne pour l'instant. Ajoute un joueur (pseudo, identifiant ou lien) pour voir l'évolution de ses amis, abonnés et sa présence. Tu peux aussi suivre un ami avec 🔔 dans Mon profil → Amis."));
+      people.length ? null : h("div", { class: "muted small", style: "margin-top:10px" }, "Tu ne suis personne pour l'instant. Ajoute un joueur (pseudo, identifiant ou lien) pour voir l'évolution de ses amis, abonnés et sa présence. Tu peux aussi suivre un ami avec « Suivre » dans Mon profil → Amis."));
   },
   async addPerson() {
     const q = h("input", { type: "text", placeholder: "Pseudo, identifiant ou lien du profil Roblox", "aria-label": "Joueur à suivre",
@@ -81,9 +81,12 @@ B.pages.stats = {
       const have = pts.length === 1 ? ` Premier point enregistré : ${B.num(pts[0].v)} ${metrics[this.metric].toLowerCase()}.` : "";
       if (d.opts && !d.opts.friends) why.push(h("button", { class: "btn sm", onclick: async () => { await B.run(() => B.call("watch:update", { id: d.id, patch: { friends: true } })); this.draw(); } }, "Activer le suivi de la liste d'amis"));
       if (d.opts && !d.opts.conn) why.push(h("button", { class: "btn sm", onclick: async () => { await B.run(() => B.call("watch:update", { id: d.id, patch: { conn: true } })); this.draw(); } }, "Activer le suivi des abonnés"));
-      card.append(h("div", { class: "empty" }, "Pas encore assez de points pour tracer une courbe : elle se remplit à chaque changement et au moins toutes les 30 min." + have), why.length ? h("div", { class: "row wrap", style: "justify-content:center" }, why) : null);
+      card.append(h("div", { class: "empty" }, "Pas encore assez de points pour tracer une courbe : elle se remplit à chaque changement et au moins toutes les 30 min." + have));
+      if (why.length) card.append(h("div", { class: "row wrap", style: "justify-content:center" }, why));
     } else {
-      card.append(B.chartSummary(pts, metrics[this.metric].toLowerCase()), B.lineChart(pts, { label: "Évolution : " + metrics[this.metric], name: "evolution-" + metrics[this.metric].toLowerCase() }));
+      const summary = B.chartSummary(pts, metrics[this.metric].toLowerCase());
+      if (summary) card.append(summary);
+      card.append(B.lineChart(pts, { label: "Évolution : " + metrics[this.metric], name: "evolution-" + metrics[this.metric].toLowerCase() }));
       const vals = pts.map((p) => p.v), first = vals[0], last = vals[vals.length - 1], avg = vals.reduce((x, y) => x + y, 0) / vals.length, diff = last - first;
       card.append(B.statStrip(vals));
     }
@@ -101,7 +104,7 @@ B.pages.stats = {
         h("button", { class: "btn bad", onclick: async () => { if (await B.confirm("Arrêter de suivre " + d.name + " ? Ses statistiques ne seront plus mises à jour.", "Arrêter", true)) { await B.run(() => B.call("watch:remove", d.id)); this.who = "me"; this.draw(); } } }, "Arrêter le suivi"));
     } else {
       acts.push(h("button", { class: "btn", title: "Suivre aussi l'évolution de ses amis et abonnés", onclick: async () => { const r = await B.run(() => B.call("watch:add", { query: d.id, opts: { friends: true, status: false, conn: true } })); if (r) { B.toast("Son compte est maintenant surveillé.", "ok"); this.draw(); } } }, "👁 Surveiller aussi son compte"),
-        h("button", { class: "btn bad", onclick: async () => { const r = await B.run(() => B.call("friends:track", { id: d.id, on: false })); if (r) { if (r.converted) B.toast("Suivi par ami activé : tes autres amis restent suivis.", "ok"); this.who = "me"; this.draw(); } } }, "🔕 Arrêter le suivi"));
+        h("button", { class: "btn bad", onclick: async () => { const r = await B.run(() => B.call("friends:track", { id: d.id, on: false })); if (r) { if (r.converted) B.toast("Suivi par ami activé : tes autres amis restent suivis.", "ok"); this.who = "me"; this.draw(); } } }, "Arrêter le suivi"));
     }
     const sub = (isW ? "Profil suivi" : "Ami suivi") + " · ID " + d.id + (o && o.paused ? " · en pause" : o && o.error ? " · " + o.error : "");
     root.append(h("div", { class: "card" }, h("div", { class: "row wrap" }, B.avatar(d.id, d.name, "lg"), h("div", { class: "grow min0" }, h("b", {}, d.name), h("div", { class: "muted small" }, sub)),
@@ -120,7 +123,8 @@ B.pages.stats = {
     if (!d.presenceStats) { hint = "La collecte de la présence est désactivée."; fix.push(h("button", { class: "btn sm", onclick: async () => { await B.set({ monitoring: { presenceStats: true } }); B.toast("Collecte activée : la carte se remplit au fil des vérifications.", "ok"); this.draw(); } }, "Activer")); }
     else if (isW && !o.status) { hint = "Le suivi du statut est désactivé pour ce profil."; fix.push(h("button", { class: "btn sm", onclick: async () => { await B.run(() => B.call("watch:update", { id: d.id, patch: { status: true } })); this.draw(); } }, "Activer le statut")); }
     else if (!d.presence) hint = "Pas encore de données de présence : elles se remplissent au fil des vérifications." + (isW ? " Pour un joueur qui n'est pas ton ami, Roblox cache souvent son activité." : "");
-    pc.append(B.pages.friends.statsBody(d.presence, hint), fix.length ? h("div", { class: "row", style: "margin-top:10px" }, fix) : null);
+    pc.append(B.pages.friends.statsBody(d.presence, hint));
+    if (fix.length) pc.append(h("div", { class: "row", style: "margin-top:10px" }, fix));
     root.append(pc);
   },
   onMonitor(snap) {

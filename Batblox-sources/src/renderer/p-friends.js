@@ -14,43 +14,58 @@ B.pages.friends = {
     const mon = B.S.settings.monitoring;
     root.append(B.head("Amis", this.list.length + " ami(s) · statut mis à jour à chaque vérification",
       [h("button", { class: "btn", onclick: async () => { await B.run(() => B.call("monitor:checkNow")); this.list = await B.call("friends:list"); this.draw(); } }, "🔄 Vérifier maintenant")], this.embedded));
-    if (mon.presenceMode !== "all") root.append(h("div", { class: "notice" }, "Le statut en ligne n'est suivi que pour les amis marqués 🔔. Tu peux suivre tous tes amis dans Réglages."));
+    if (mon.presenceMode !== "all") root.append(h("div", { class: "notice" }, "Le statut en ligne n'est suivi que pour les amis marqués « Suivi ». Tu peux suivre tous tes amis dans Réglages."));
     const bar = h("div", { class: "row wrap", style: "margin-bottom:12px" },
       h("input", { type: "search", placeholder: "Rechercher un ami…", value: this.q, "aria-label": "Rechercher", style: "max-width:260px", oninput: (e) => { this.q = e.target.value; this.drawList(); } }),
       h("select", { "aria-label": "Trier", onchange: (e) => { this.sort = e.target.value; this.drawList(); } }, ["statut", "nom", "dernière activité"].map((o) => h("option", { value: o, selected: o === this.sort }, "Tri : " + o))),
       h("div", { class: "chips" }, [["tous", "Tous"], ["en_ligne", "En ligne"], ["jeu", "En jeu"], ["hors_ligne", "Hors ligne"], ["suivis", "Suivis"]].map(([v, l]) => h("button", { class: "chip" + (this.filter === v ? " on" : ""), onclick: () => { this.filter = v; this.draw(); } }, l))));
     root.append(bar, h("div", { class: "card list", id: "fl" }));
     this.drawList();
+    const tok = (this.idleTok = (this.idleTok || 0) + 1);
     B.call("friends:idle").then((idle) => {
-      if (!idle.length) return;
+      if (!idle || !idle.length || tok !== this.idleTok || root.querySelector(".notice")) return;
       const n = h("div", { class: "notice" }, `${idle.length} ami(s) suivi(s) n'ont pas été vus en ligne depuis ${mon.idleDays} jours : `,
         h("button", { class: "btn sm", onclick: () => this.triage(idle) }, "Faire le tri"));
       root.insertBefore(n, root.children[1]);
     }).catch(() => {});
   },
   rank: { jeu: 0, studio: 1, en_ligne: 2, inconnu: 3, hors_ligne: 4 },
+  rk(f) { return this.rank[f.status] === undefined ? 3 : this.rank[f.status]; },
   drawList() {
     const box = B.$("#fl"); if (!box) return;
     B.clear(box);
     const q = this.q.trim().toLowerCase();
-    let l = this.list.filter((f) => (!q || f.name.toLowerCase().includes(q)) && (this.filter === "tous" || (this.filter === "suivis" ? f.tracked : this.filter === "en_ligne" ? f.status === "en_ligne" || f.status === "studio" : f.status === this.filter)));
-    if (this.sort === "nom") l.sort((a, b) => a.name.localeCompare(b.name, "fr"));
-    else if (this.sort === "dernière activité") l.sort((a, b) => (b.lastOn || 0) - (a.lastOn || 0));
-    else l.sort((a, b) => this.rank[a.status] - this.rank[b.status] || a.name.localeCompare(b.name, "fr"));
+    let l = this.list.filter((f) => (!q || String(f.name || "").toLowerCase().includes(q)) && (this.filter === "tous" || (this.filter === "suivis" ? f.tracked : this.filter === "en_ligne" ? f.status === "en_ligne" || f.status === "studio" : f.status === this.filter)));
+    if (this.sort === "nom") l.sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), "fr"));
+    else if (this.sort === "dernière activité") { const act = (f) => (f.status === "jeu" || f.status === "studio" || f.status === "en_ligne" ? Number.MAX_SAFE_INTEGER : Number(f.lastOn) || 0); l.sort((a, b) => act(b) - act(a)); }
+    else l.sort((a, b) => this.rk(a) - this.rk(b) || String(a.name || "").localeCompare(String(b.name || ""), "fr"));
     if (!l.length) { box.append(h("div", { class: "empty" }, this.list.length ? "Aucun ami ne correspond." : "Ta liste d'amis apparaîtra après la première vérification.")); return; }
     for (const f of l.slice(0, 300)) {
       const sub = f.status === "jeu" ? "🎮 " + (f.place || "En jeu") : f.status === "hors_ligne" ? "Dernière activité : " + (f.lastOn ? B.ago(f.lastOn) : "inconnue") : B.statusLabel(f.status);
+      const refresh = async () => { this.list = await B.call("friends:list"); this.drawList(); };
       box.append(h("div", { class: "item" }, B.avatar(f.id, f.name, "ring " + f.status), h("div", { class: "main" }, h("b", {}, f.name), h("span", { class: "muted small" }, sub)), B.dot(f.status),
-        f.canJoin ? h("button", { class: "btn sm", onclick: () => B.run(() => B.call("roblox:join", f.id)).then((r) => r && B.toast("Roblox se lance…", "ok")) }, "Rejoindre") : null,
-        h("button", { class: "btn sm", title: "Historique de cet ami", onclick: () => { B.pages.history.search = f.name.replace(/ \(@.*\)$/, ""); B.go("history"); } }, "📜"),
-        h("button", { class: "btn sm", title: "Statistiques de présence", onclick: () => this.showStats(f) }, "📊"),
-        h("button", { class: "btn sm" + (f.tracked ? " pri" : ""), title: f.tracked ? "Arrêter de suivre cette personne" : "Suivre cette personne (amis, statut, abonnés, stats)", "aria-pressed": f.tracked ? "true" : "false",
-          onclick: async () => {
-            const r = await B.run(() => B.call("friends:track", { id: f.id, on: !f.tracked }));
-            if (!r) return;
-            B.toast(f.tracked ? "« " + f.name + " » n'est plus suivi." : "« " + f.name + " » est maintenant suivi (Profils suivis).", "ok");
-            this.list = await B.call("friends:list"); this.draw();
-          } }, f.tracked ? "🔔 Suivi" : "🔕")));
+        h("div", { class: "item-actions" },
+          f.canJoin ? h("button", { class: "btn sm", onclick: () => B.run(() => B.call("roblox:join", f.id)).then((r) => r && B.toast("Roblox se lance…", "ok")) }, "Rejoindre") : null,
+          h("button", { class: "btn sm", title: "Historique de cet ami", "aria-label": "Historique de cet ami", onclick: () => { B.pages.history.search = f.name.replace(/ \(@.*\)$/, ""); B.go("history"); } }, "📜"),
+          h("button", { class: "btn sm", title: "Statistiques de présence", "aria-label": "Statistiques de présence", onclick: () => this.showStats(f) }, "📊"),
+          // 🔕 : notifications de CETTE personne. Activé = on ne reçoit plus ses connexions / déconnexions (les jeux lancés restent notifiés).
+          h("button", { class: "btn sm" + (f.gameOnly ? " pri" : ""), "aria-pressed": f.gameOnly ? "true" : "false",
+            title: f.gameOnly ? "Notifications limitées aux jeux : clique pour recevoir aussi ses connexions et déconnexions" : "Ne plus être notifié de ses connexions / déconnexions (seuls ses jeux restent notifiés)",
+            "aria-label": "Notifications de cette personne",
+            onclick: async () => {
+              const r = await B.run(() => B.call("friends:gameOnly", { id: f.id, on: !f.gameOnly }));
+              if (!r) return;
+              B.toast(f.gameOnly ? "Connexions et déconnexions de « " + f.name + " » de nouveau notifiées." : "« " + f.name + " » : seuls ses jeux seront notifiés.", "ok");
+              await refresh();
+            } }, "🔕"),
+          // « Suivi » : suivre / ne plus suivre la personne (profil suivi complet : amis, statut, abonnés, stats).
+          h("button", { class: "btn sm" + (f.tracked ? " pri" : ""), title: f.tracked ? "Arrêter de suivre cette personne" : "Suivre cette personne (amis, statut, abonnés, stats)", "aria-pressed": f.tracked ? "true" : "false",
+            onclick: async () => {
+              const r = await B.run(() => B.call("friends:track", { id: f.id, on: !f.tracked }));
+              if (!r) return;
+              B.toast(f.tracked ? "« " + f.name + " » n'est plus suivi." : "« " + f.name + " » est maintenant suivi (Profils suivis).", "ok");
+              this.list = await B.call("friends:list"); this.draw();
+            } }, f.tracked ? "Suivi" : "Suivre"))));
     }
     if (l.length > 300) box.append(h("div", { class: "muted small", style: "padding:8px" }, `${l.length - 300} autre(s) : affine la recherche pour les voir.`));
   },

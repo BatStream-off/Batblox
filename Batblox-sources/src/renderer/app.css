@@ -136,8 +136,6 @@ pre.log { max-height: 320px; overflow: auto; background: var(--field); border: 1
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } #glow { display: none; } }
 
 /* ============ Refonte visuelle v2 ============ */
-html { scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
-::-webkit-scrollbar { width: 10px; height: 10px; } ::-webkit-scrollbar-thumb { background: var(--line); border-radius: 99px; border: 3px solid transparent; background-clip: padding-box; } ::-webkit-scrollbar-thumb:hover { background: var(--field-b); background-clip: padding-box; border: 3px solid transparent; }
 body { font-feature-settings: "tnum" 1; -webkit-font-smoothing: antialiased; }
 h1 { font-size: 26px; font-weight: 750; letter-spacing: -.02em; }
 h2 { font-size: 15px; font-weight: 650; letter-spacing: -.01em; }
@@ -623,7 +621,7 @@ button.tabtile[aria-selected="true"] .stat-ico, button.tabtile[aria-selected="tr
 @media (max-width: 700px) { .who-list { flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; max-height: none; } .chip.who { flex: none; } }
 
 /* Accueil : amis façon Roblox (rond + pastille : gris hors ligne, bleu en ligne, vert en jeu) */
-.frow { display: flex; gap: 14px; overflow-x: auto; padding: 6px 2px 12px; scrollbar-width: thin; }
+.frow { display: flex; gap: 14px; overflow-x: auto; padding: 6px 2px 12px; }
 .fbub { flex: none; width: 82px; display: flex; flex-direction: column; align-items: center; gap: 3px; text-align: center; }
 .fbub .avw { position: relative; width: 60px; height: 60px; display: block; margin-bottom: 3px; }
 .fbub .avw .av { width: 60px; height: 60px; font-size: 22px; margin: 0; }
@@ -800,7 +798,6 @@ pre.log, .kv > .wide dd { border-color: transparent; border-radius: 15px; backgr
 .sk { border-radius: 14px; }
 th { border-bottom-color: var(--line); } td { border-bottom-color: var(--line); }
 .field-row { border-top-color: var(--line); }
-::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--field-b) 75%, transparent); background-clip: padding-box; }
 
 /* -- Thème Batcave : reflets jaunes conservés -- */
 :root[data-theme="bat"] .tile:hover, :root[data-theme="bat"] .game:hover { box-shadow: 5px 8px 16px -7px var(--c-drop), 0 0 18px -8px rgba(255,214,10,.38), inset 2px 2px 4px var(--c-hi), inset -2px -3px 5px var(--c-lo); }
@@ -956,7 +953,6 @@ th { border-bottom-color: var(--line); } td { border-bottom-color: var(--line); 
 :root[data-theme="inde"] .switch input:checked + i { background: var(--ok); }
 :root[data-theme="inde"] input[type=range]::-webkit-slider-thumb { background: linear-gradient(160deg, #ffd6a0, var(--acc2)); border: 0; }
 :root[data-theme="inde"] ::selection { background: #FF9933; color: #2B1500; }
-:root[data-theme="inde"] ::-webkit-scrollbar-thumb { background: rgba(255,153,51,.50); background-clip: padding-box; border: 3px solid transparent; }
 
 /* ---------- Thème Batman (v43) ---------- */
 :root[data-theme="batman"] { color-scheme: dark; --r:12px; --r-s:8px;
@@ -1052,7 +1048,6 @@ th { border-bottom-color: var(--line); } td { border-bottom-color: var(--line); 
 :root[data-theme="batman"] .modal::before { content: ""; position: absolute; top: -1px; left: 22px; width: 44px; height: 2px; border-radius: 0 0 3px 3px; background: var(--acc); box-shadow: 0 0 12px 1px rgba(255,209,0,.7); }
 :root[data-theme="batman"] input[type=range]::-webkit-slider-thumb { background: linear-gradient(160deg, #fff0a0, var(--acc)); border: 0; }
 :root[data-theme="batman"] ::selection { background: var(--acc); color: #0A0B0D; }
-:root[data-theme="batman"] ::-webkit-scrollbar-thumb { background: rgba(255,209,0,.30); background-clip: padding-box; border: 3px solid transparent; }
 
 /* -- Messages (chat Roblox) : deux colonnes, bulles « pâte à modeler » -- */
 .chat { display: grid; grid-template-columns: minmax(250px, 320px) 1fr; gap: 14px; height: calc(100vh - 250px); min-height: 380px; }
@@ -1090,3 +1085,118 @@ th { border-bottom-color: var(--line); } td { border-bottom-color: var(--line); 
 /* -- Tuiles de jeux : bouton d'action pleine largeur, centré, toujours aligné en bas -- */
 .tile-act { margin-top: auto; padding-top: 8px; }
 .tile-act .btn { flex: 1; justify-content: center; min-height: 30px; }
+
+/* ============ Scrollbars (v3) ============
+   ATTENTION : ne jamais définir « scrollbar-color » / « scrollbar-width » ici. Dès qu'un seul des deux est posé, Chromium
+   ignore tous les ::-webkit-scrollbar (ce qui rendait les anciennes barres grises, fines et identiques sur tous les thèmes). */
+::-webkit-scrollbar { width: 14px; height: 14px; background: transparent; }
+::-webkit-scrollbar-track, ::-webkit-scrollbar-track-piece { background: transparent; }
+::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
+::-webkit-scrollbar-corner { background: transparent; }
+/* Poignée de 6 px visibles dans une zone de 14 px (bordure transparente), qui s'élargit au survol et prend l'accent du thème quand on la saisit. */
+::-webkit-scrollbar-thumb {
+  min-height: 42px; min-width: 42px; border-radius: 99px; border: 4px solid transparent; background-clip: padding-box;
+  background-color: color-mix(in srgb, var(--muted) 34%, transparent);
+}
+::-webkit-scrollbar-thumb:hover { border-width: 3px; background-color: color-mix(in srgb, var(--muted) 62%, transparent); }
+::-webkit-scrollbar-thumb:active { border-width: 3px; background-color: color-mix(in srgb, var(--acc2) 85%, transparent); }
+/* Petits conteneurs (journaux, listes, carrousels) : barre plus discrète. */
+pre.log::-webkit-scrollbar, .who-list::-webkit-scrollbar, .modal::-webkit-scrollbar { width: 12px; height: 12px; }
+.rail::-webkit-scrollbar, .frow::-webkit-scrollbar { height: 12px; }
+/* La zone de défilement principale réserve toujours sa gouttière : plus de saut horizontal quand une page devient assez longue pour défiler. */
+main { scrollbar-gutter: stable; }
+nav { scrollbar-gutter: auto; }
+
+/* ============ Cache de Roblox (maintenance) ============ */
+.cache-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.cache-head h2 { margin: 0; flex: 1; min-width: 0; }
+.cache-total { font-size: 18px; font-weight: 750; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+.cache-list { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: var(--r-s); overflow: hidden; background: color-mix(in srgb, var(--field) 55%, transparent); }
+.cache-item { display: grid; grid-template-columns: 18px minmax(0, 1fr) 88px; align-items: center; column-gap: 14px; padding: 10px 14px; min-height: 52px; margin: 0; cursor: pointer; font-size: 13px; transition: background .12s; }
+.cache-item + .cache-item { border-top: 1px solid var(--line); }
+.cache-item:hover { background: var(--hover); }
+.cache-item input[type=checkbox] { margin: 0; justify-self: center; }
+.cache-item .nm { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.cache-item .nm b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cache-item .nm .bar { height: 4px; }
+.cache-item .sz { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--muted); }
+.cache-item.off { cursor: default; opacity: .55; } .cache-item.off:hover { background: none; }
+.cache-item.sk-row { cursor: default; } .cache-item.sk-row:hover { background: none; }
+.cache-item.sk-row .sk { height: 12px; margin: 0; }
+.cache-item.sk-row .sk.box { width: 16px; height: 16px; border-radius: 5px; }
+.cache-actions { display: flex; align-items: center; gap: 8px; margin: 14px 0 4px; flex-wrap: wrap; }
+.cache-actions .btn { min-height: var(--ctl-h, 34px); justify-content: center; }
+/* Réglages sous la liste : libellé à gauche, contrôle à droite, calé sur la même ligne de base que les autres cartes. */
+.cache-opts { margin-top: 6px; }
+.cache-opts .field-row:first-child { border-top: 1px solid var(--line); }
+.cache-opts .field-row input[type=number] { width: 104px; text-align: right; }
+@media (max-width: 560px) { .cache-item { grid-template-columns: 18px minmax(0, 1fr) auto; } }
+
+/* ============ Cartes : plus aucun bouton ne sort du cadre ============
+   Cause du bug : « .field-row > :not(.lbl) { flex: none } » et « .item .btn { flex: none } » interdisaient tout rétrécissement,
+   et « .btn { white-space: nowrap } » empêchait le retour à la ligne. Les lignes peuvent maintenant passer sur deux lignes. */
+.card { min-width: 0; max-width: 100%; }
+.item { flex-wrap: wrap; row-gap: 8px; min-width: 0; max-width: 100%; }
+.item .main { flex: 1 1 150px; min-width: 0; }
+.item-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 6px; margin-left: auto; min-width: 0; max-width: 100%; }
+.item-actions .btn { flex: 0 0 auto; }
+@media (max-width: 760px) {
+  /* Écran étroit (fenêtre réduite ou affichage Windows agrandi) : les actions passent sous le nom, alignées à gauche. */
+  .item-actions { flex: 1 1 100%; justify-content: flex-start; margin-left: 0; }
+}
+/* Carte « Mises à jour » : texte à gauche (qui rétrécit et passe à la ligne), bouton à droite ; en dessous de 560 px il passe dessous, pleine largeur. */
+.upd-row { display: flex; align-items: flex-start; flex-wrap: wrap; gap: 12px 20px; padding: 12px 0 2px; border-top: 1px solid var(--line); min-width: 0; }
+.upd-info { flex: 1 1 260px; min-width: 0; max-height: 15em; overflow-y: auto; overflow-wrap: anywhere; word-break: break-word; }
+.upd-btn { flex: 0 1 auto; max-width: 100%; min-width: 0; white-space: normal; text-align: center; line-height: 1.25; }
+@media (max-width: 560px) { .upd-btn { flex: 1 1 100%; } }
+
+/* ============ Protection du contenu (sélection, glisser) ============
+   Les champs de saisie restent utilisables normalement ; l'attribut data-allow-copy rouvre la sélection sur un bloc précis. */
+html, body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+input, textarea, [contenteditable=""], [contenteditable="true"], [data-allow-copy], [data-allow-copy] * { -webkit-user-select: text; user-select: text; }
+img, svg, a, button { -webkit-user-drag: none; user-drag: none; }
+/* Carte « Mise à jour » de Roblox : l'état prend la place disponible et passe à la ligne ; les boutons se calent à droite, ou dessous sur écran étroit. */
+.rb-upd { gap: 8px 10px; }
+.rb-state { flex: 1 1 220px; min-width: 0; overflow-wrap: anywhere; }
+.rb-upd .btn { flex: 0 0 auto; max-width: 100%; }
+/* Bandeaux : le texte et le bouton passent sur deux lignes plutôt que de déborder. */
+.notice { flex-wrap: wrap; row-gap: 8px; min-width: 0; overflow-wrap: anywhere; }
+
+/* =====================================================================================
+   v1.5.3 — corrections de cohérence graphique
+   ===================================================================================== */
+
+/* Statuts d'amis : même convention PARTOUT (gris = hors ligne, bleu = en ligne, vert = en jeu), comme sur Roblox.
+   Avant, la liste d'amis, la carte Roblox et les statistiques affichaient « en ligne » en vert et « en jeu » en bleu,
+   alors que les ronds de l'accueil faisaient l'inverse. */
+.dot.s-on { background: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,.20), inset 1px 1px 2px rgba(255,255,255,.45); }
+.dot.s-game { background: #22c55e; box-shadow: 0 0 0 3px rgba(34,197,94,.20), inset 1px 1px 2px rgba(255,255,255,.45); }
+.dot.s-off { background: #8b92a6; box-shadow: none; }
+.av.ring.en_ligne { box-shadow: 0 0 0 2px var(--card), 0 0 0 4px #3b82f6; }
+.av.ring.jeu, .av.ring.studio { box-shadow: 0 0 0 2px var(--card), 0 0 0 4px #22c55e; }
+
+/* Tuiles d'onglets / compteurs : un grand nombre ou un long titre ne déborde plus de sa tuile */
+button.tabtile > div:last-child { min-width: 0; flex: 1 1 auto; }
+button.tabtile b { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+button.tabtile b.tt { font-size: 20px; font-weight: 700; letter-spacing: -.01em; }
+
+/* Découvrir : recherche + bouton restent sur une seule ligne, alignés comme sur les autres pages */
+.page > header .actions.inline { flex-wrap: nowrap; align-items: center; }
+.page > header .actions.inline input[type=search] { width: 250px; max-width: 250px; flex: 0 1 250px; min-width: 120px; }
+
+/* Comptes : la rangée de boutons passe sous le nom au lieu de l'écraser */
+.acc-card { flex-wrap: wrap; row-gap: 12px; }
+.acc-card > .grow { flex: 1 1 240px; min-width: 0; overflow-wrap: anywhere; }
+.acc-card > .acc-actions { flex: 0 1 auto; margin-left: auto; justify-content: flex-end; }
+
+/* Rangée d'amis : le bouton « Rejoindre » ne dépasse jamais de sa bulle (thème Batman : majuscules + espacement) */
+.fbub .btn { max-width: 100%; white-space: nowrap; }
+:root[data-theme="batman"] .fbub .btn.pri { letter-spacing: .02em; font-size: 10px; padding: 2px 7px; }
+:root[data-theme="batman"] h1 { letter-spacing: .06em; font-size: 22px; }
+.tabs button.tabtile { padding: 14px 12px; gap: 10px; }
+.tabs button.tabtile .stat-ico { width: 36px; height: 36px; flex: none; }
+.tabs button.tabtile span { font-size: 12px; }
+.tabs button.tabtile b { font-size: 24px; }
+.tabs button.tabtile b.tt { font-size: 19px; }
+@media (max-width: 1040px) { .tabs button.tabtile b.tt { font-size: 16px; } }
+

@@ -26,7 +26,7 @@ B.pages.activity = {
     B.clear(box);
     box.append(h("div", { class: "tabs", role: "tablist", "aria-label": "Sections de l'activité" }, ACT_TABS.map(([id, label, ico, desc]) =>
       h("button", { class: "stat tabtile", role: "tab", "aria-selected": this.tab === id ? "true" : "false", onclick: () => this.open(id) },
-        h("div", { class: "stat-ico" }, B.icon(ico)), h("div", {}, h("b", {}, label), h("span", {}, desc))))));
+        h("div", { class: "stat-ico" }, B.icon(ico)), h("div", {}, h("b", { class: "tt" }, label), h("span", {}, desc))))));
   },
 
   open(id) {

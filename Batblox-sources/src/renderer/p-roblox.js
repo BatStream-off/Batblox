@@ -15,7 +15,7 @@ B.pages.roblox = {
   drawClient(s) {
     const box = B.$("#r-client"); if (!box) return; B.clear(box);
     const cur = s.client || "auto";
-    const opts = [{ id: "auto", name: "Automatique", found: true }].concat(s.clients, [{ id: "custom", name: "Personnalisé…", found: true }]);
+    const opts = [{ id: "auto", name: "Automatique", found: true }].concat(s.clients || [], [{ id: "custom", name: "Personnalisé…", found: true }]);
     const apply = async (o) => {
       if (o.id === "custom") { const p = await B.run(() => B.call("launcher:pickExe")); if (!p) return; await B.set({ launcher: { client: "custom", customExe: p } }); }
       else await B.set({ launcher: { client: o.id } });
@@ -27,7 +27,7 @@ B.pages.roblox = {
       h("div", { class: "chips" }, opts.map((o) => h("button", { class: "chip" + (cur === o.id ? " on" : ""), disabled: !o.found, title: o.found ? "" : "Non détecté sur ce PC", onclick: () => apply(o) },
         o.name + (!["auto", "custom"].includes(o.id) ? (o.found ? " ✓" : " (non détecté)") : "")))),
       h("div", { class: "muted small", style: "margin-top:10px" }, hint),
-      s.chosenOk === false ? h("div", { class: "notice bad", style: "margin-top:10px" }, "Ce lanceur est introuvable : choisis-en un autre ou repasse sur « Automatique ».") : null,
+      ...(s.chosenOk === false ? [h("div", { class: "notice bad", style: "margin-top:10px" }, "Ce lanceur est introuvable : choisis-en un autre ou repasse sur « Automatique ».")] : []),
       h("div", { class: "muted small", style: "margin-top:8px" }, "Fishstrap, Voidstrap et les autres se détectent s'ils sont dans %LOCALAPPDATA%. Pour tout autre lanceur, utilise « Personnalisé… »."));
   },
   async drawUpdate(force) {
@@ -43,7 +43,7 @@ B.pages.roblox = {
       try { await B.updateRoblox(u.running, () => this.drawUpdate(false), () => { this.updating = true; this.drawUpdate(false); }); }
       finally { this.updating = false; this.refresh(); }
     };
-    box.append(h("h3", {}, "Mise à jour"), h("div", { class: "row" }, h("b", {}, state), h("span", { class: "grow" }),
+    box.append(h("h3", {}, "Mise à jour"), h("div", { class: "row wrap rb-upd" }, h("b", { class: "rb-state" }, state),
       h("button", { class: "btn sm ghost", disabled: busy, onclick: () => this.drawUpdate(true) }, "Revérifier"),
       h("button", { class: "btn" + (u.upToDate === false ? " pri" : ""), disabled: busy || u.upToDate === true || !u.latest, title: u.upToDate === true ? "Déjà à jour" : "", onclick: go }, "Mettre à jour Roblox")),
       h("div", { class: "muted small", style: "margin-top:6px" }, u.latest ? `Installée : ${fmt(u.installed && u.installed.guid) || "?"} · Dernière version : ${fmt(u.latest.guid)}${u.latest.version ? " (" + u.latest.version + ")" : ""}` : (u.error || "")),
@@ -84,10 +84,10 @@ B.pages.accounts = {
     if (!list.length) { p.append(h("div", { class: "card empty" }, "Aucun compte. Ajoute ton premier compte Roblox pour commencer.")); return; }
     for (const a of list) {
       const [cls, txt] = STATUS[a.status] || STATUS.erreur;
-      p.append(h("div", { class: "card" }, h("div", { class: "row" }, B.avatar(a.id, a.label, "lg", a.avatarUrl),
+      p.append(h("div", { class: "card" }, h("div", { class: "row acc-card" }, B.avatar(a.id, a.label, "lg", a.avatarUrl),
         h("div", { class: "grow" }, h("div", { class: "row" }, h("span", { class: "dot " + cls }), h("b", {}, a.label), a.active ? h("span", { class: "pill" }, "actif") : null, a.isDefault ? h("span", { class: "pill" }, "par défaut") : null),
           h("div", { class: "muted small" }, "@" + a.name + " · " + txt + (a.checkedAt ? " · vérifié " + B.ago(a.checkedAt) : ""))),
-        h("div", { class: "row wrap", style: "justify-content:flex-end" },
+        h("div", { class: "row wrap acc-actions" },
           a.active ? null : h("button", { class: "btn sm pri", onclick: () => B.run(() => B.call("accounts:use", a.id)) }, "Utiliser"),
           h("button", { class: "btn sm", onclick: () => this.rename(a) }, "Modifier"),
           h("button", { class: "btn sm", onclick: async () => { await B.run(() => B.call("accounts:check", a.id)); B.toast("Vérification terminée.", "ok"); } }, "Vérifier"),
@@ -114,6 +114,7 @@ B.pages.custom = {
   },
   async draw() {
     const p = B.clear(this.root);
+    (this.fontStyles || []).forEach((n) => n.remove()); this.fontStyles = [];
     const st = await B.run(() => B.call("custom:status"));
     p.append(h("header", {}, h("div", {}, h("h1", {}, "Personnalisation"), h("div", { class: "muted" }, "Son de mort, police et curseurs du client Roblox."))));
     p.append(h("div", { class: "notice" }, "Batblox sauvegarde chaque fichier d'origine avant de le remplacer : tu peux toujours désactiver ou restaurer. Une mise à jour de Roblox remet les fichiers d'origine (Batblox peut les réappliquer). Ces modifications portent sur des fichiers locaux de Roblox, qui ne les prend pas officiellement en charge : à utiliser en connaissance de cause."));
@@ -128,12 +129,17 @@ B.pages.custom = {
         if (!pv.url) { prev.append(h("span", { class: "muted small" }, pv.name)); continue; }
         if (kind === "sound") prev.append(h("div", {}, h("div", { class: "small" }, pv.name), h("audio", { controls: true, src: pv.url, "aria-label": "Aperçu du son" })));
         else if (kind === "cursor") prev.append(h("div", { class: "row small" }, h("img", { src: pv.url, alt: "", style: "max-width:48px;max-height:48px;image-rendering:pixelated;background:var(--card2);padding:4px;border-radius:6px" }), pv.name));
-        else { const fam = "prev" + Math.random().toString(36).slice(2, 8); const st2 = document.createElement("style"); st2.textContent = `@font-face{font-family:${fam};src:url(${pv.url})}`; document.head.append(st2); prev.append(h("div", { style: `font-family:${fam},sans-serif;font-size:22px` }, "Batblox — Portez ce vieux whisky au juge blond qui fume. 0123456789")); }
+        else { const fam = "prev" + Math.random().toString(36).slice(2, 8); const st2 = document.createElement("style"); st2.textContent = `@font-face{font-family:${fam};src:url(${pv.url})}`; document.head.append(st2); this.fontStyles.push(st2); prev.append(h("div", { style: `font-family:${fam},sans-serif;font-size:22px` }, "Batblox — Portez ce vieux whisky au juge blond qui fume. 0123456789")); }
       }
       card.append(prev);
       card.append(h("div", { class: "row wrap", style: "margin-top:12px" },
         h("button", { class: "btn", onclick: async () => { const r = await B.run(() => B.call("custom:pick", kind)); if (r) { this.chosen[kind] = r; this.draw(); } } }, "📂 Importer…"),
-        h("button", { class: "btn pri", disabled: !ch && !it.source.length, onclick: async () => { const paths = ch ? ch.paths : null; if (!paths) return B.toast("Importe d'abord un fichier.", "bad"); const r = await B.run(() => B.call("custom:apply", { kind, paths })); if (r) { delete this.chosen[kind]; B.toast(it.label + " appliqué.", "ok"); this.draw(); } } }, "Appliquer"),
+        h("button", { class: "btn pri", disabled: !ch && (!it.source.length || (it.active && !it.outdated)), title: ch ? "" : it.source.length ? "Réappliquer le fichier déjà importé" : "Importe d'abord un fichier",
+          onclick: async () => {
+            // fichier fraîchement importé → on l'applique ; sinon on réapplique la source mémorisée (après « Désactiver » ou une mise à jour de Roblox)
+            const r = await B.run(() => ch ? B.call("custom:apply", { kind, paths: ch.paths }) : B.call("custom:reapply", kind));
+            if (r) { delete this.chosen[kind]; B.toast(it.label + (ch ? " appliqué." : " réappliqué."), "ok"); this.draw(); }
+          } }, ch ? "Appliquer" : it.source.length ? "Réappliquer" : "Appliquer"),
         h("button", { class: "btn", disabled: !it.active, onclick: async () => { await B.run(() => B.call("custom:restore", kind)); B.toast(it.label + " désactivé : fichiers d'origine restaurés.", "ok"); this.draw(); } }, "Désactiver"),
         h("button", { class: "btn", disabled: !it.source.length, onclick: async () => { if (await B.confirm("Restaurer les fichiers d'origine et oublier cette personnalisation ?", "Restaurer")) { await B.run(() => B.call("custom:forget", kind)); this.draw(); } } }, "Restaurer")));
       p.append(card);
@@ -151,8 +157,8 @@ B.pages.maint = {
     p.append(h("div", { class: "card", id: "m-net" }), h("div", { class: "card", id: "m-int" }), h("div", { class: "card", id: "m-cache" }), h("div", { class: "card", id: "m-log" }));
     this.netIdle();
     this.integrityIdle();
-    await this.cache();
     this.logs(false);
+    this.cache(); // sans « await » : la page s'affiche tout de suite, la taille du cache arrive quand elle est mesurée
   },
   netIdle() {
     const b = B.clear(B.$("#m-net"));
@@ -171,16 +177,16 @@ B.pages.maint = {
   },
   integrityIdle() {
     const b = B.clear(B.$("#m-int"));
-    b.append(h("h2", {}, "🛡️ Intégrité"), h("div", { class: "muted small" }, "Contrôle la présence du client et de ses dossiers, et si ta version est à jour. Rien n'est affiché tant que la vérification n'a pas été faite."),
+    b.append(h("h2", {}, "Intégrité"), h("div", { class: "muted small" }, "Contrôle la présence du client et de ses dossiers, et si ta version est à jour. Rien n'est affiché tant que la vérification n'a pas été faite."),
       h("div", { class: "row", style: "margin-top:10px" }, h("button", { class: "btn pri", onclick: () => this.integrity() }, "Vérifier maintenant")));
   },
   async integrity() {
     const b = B.clear(B.$("#m-int"));
-    b.append(h("h2", {}, "🛡️ Intégrité"), h("div", { class: "row" }, h("span", { class: "dot game" }), "Vérification en cours…"));
+    b.append(h("h2", {}, "Intégrité"), h("div", { class: "row" }, h("span", { class: "dot game" }), "Vérification en cours…"));
     const r = await B.run(() => B.call("maint:integrity")); if (!r) return this.integrityIdle();
     B.clear(b);
     const cls = r.state === "OK" ? "ok" : "bad";
-    b.append(h("div", { class: "row" }, h("h2", { class: "grow" }, "🛡️ Intégrité"), h("span", { class: "pill " + cls }, r.state)));
+    b.append(h("div", { class: "row" }, h("h2", { class: "grow" }, "Intégrité"), h("span", { class: "pill " + cls }, r.state)));
     b.append(h("div", { style: "margin:6px 0" }, r.percent == null ? h("span", { class: "muted" }, "Aucun contrôle n'a pu être effectué.") : h("div", {}, h("b", {}, `${r.ok} / ${r.total} contrôles réussis`), h("div", { class: "bar", style: "margin-top:6px" }, h("i", { style: `width:${r.percent}%` })))));
     for (const c of r.checks) b.append(h("div", { class: "row small", style: "padding:3px 0" }, h("span", { class: c.state === "ok" ? "ok" : c.state === "inconnu" ? "muted" : "bad" }, c.state === "ok" ? "✓" : c.state === "inconnu" ? "?" : "✗"), h("span", {}, c.label), c.detail ? h("span", { class: "muted" }, "— " + c.detail) : null));
     if (r.modified.length) b.append(h("div", { class: "notice", style: "margin-top:10px" }, `${r.modified.length} fichier(s) personnalisé(s) par Batblox (restaurables depuis « Personnalisation »).`));
@@ -188,17 +194,44 @@ B.pages.maint = {
     b.append(h("div", { class: "row", style: "margin-top:10px" }, h("button", { class: "btn", onclick: () => this.integrity() }, "Vérifier maintenant"),
       h("button", { class: "btn", onclick: async () => { if (await B.confirm("Restaurer les fichiers personnalisés puis lancer la réparation officielle de Roblox ?", "Réparer")) { const s = await B.run(() => B.call("maint:repair")); if (s) B.toast(s.join(" "), "ok"); } } }, "Réparer")));
   },
-  async cache() {
+  async cache(force) {
+    const tok = (this.ctok = (this.ctok || 0) + 1);
+    const box = B.$("#m-cache"); if (!box) return;
+    if (this.last) this.drawCache(this.last, true);
+    else {
+      const b = B.clear(box);
+      b.append(h("div", { class: "cache-head" }, h("h2", {}, "Cache de Roblox"), h("span", { class: "muted small" }, "Calcul en cours…")),
+        h("div", { class: "cache-list", "aria-busy": "true" }, [0, 1, 2].map(() => h("div", { class: "cache-item sk-row" }, h("span", { class: "sk box" }), h("span", { class: "sk", style: "width:60%" }), h("span", { class: "sk", style: "width:100%" })))));
+    }
+    const c = await B.run(() => B.call("maint:cache", { force: !!force }));
+    if (tok !== this.ctok || !B.$("#m-cache")) return; // page quittée ou calcul plus récent
+    if (!c) { if (this.last) this.drawCache(this.last, false); return; }
+    this.last = c;
+    this.drawCache(c, false);
+  },
+  drawCache(c, refreshing) {
     const b = B.clear(B.$("#m-cache"));
-    const c = await B.run(() => B.call("maint:cache")); if (!c) return;
-    const sel = new Set(c.items.filter((i) => i.exists).map((i) => i.id));
-    b.append(h("div", { class: "row" }, h("h2", { class: "grow" }, "Cache de Roblox"), h("b", {}, B.bytes(c.total))));
+    const sel = (this.sel = this.sel && !refreshing ? this.sel : new Set(c.items.filter((i) => i.exists).map((i) => i.id)));
+    b.append(h("div", { class: "cache-head" }, h("h2", {}, "Cache de Roblox"), refreshing ? h("span", { class: "muted small" }, "mise à jour…") : null, h("span", { class: "cache-total" }, B.bytes(c.total))));
     if (!c.items.length) b.append(h("div", { class: "muted small" }, "Disponible sous Windows uniquement."));
-    for (const i of c.items) b.append(h("label", { class: "row small", style: "padding:4px 0" }, h("input", { type: "checkbox", checked: i.exists, disabled: !i.exists, onchange: (e) => (e.target.checked ? sel.add(i.id) : sel.delete(i.id)) }), h("span", { class: "grow" }, i.label), h("span", { class: "muted" }, i.exists ? B.bytes(i.bytes) : "absent")));
-    b.append(h("div", { class: "row", style: "margin-top:10px" }, h("button", { class: "btn pri", onclick: async () => { const r = await B.run(() => B.call("maint:clean", { ids: [...sel] })); if (r) { B.toast(`${B.bytes(r.freed)} libérés` + (r.failed ? ` (${r.failed} élément(s) en cours d'utilisation ignoré(s))` : "") + ".", "ok"); this.cache(); } } }, "🧹 Nettoyer"), h("button", { class: "btn", onclick: () => this.cache() }, "Recalculer")));
+    else {
+      const list = h("div", { class: "cache-list" });
+      for (const i of c.items) {
+        const pct = c.total > 0 && i.exists ? Math.max(2, Math.round((i.bytes / c.total) * 100)) : 0;
+        list.append(h("label", { class: "cache-item" + (i.exists ? "" : " off") },
+          h("input", { type: "checkbox", checked: i.exists && sel.has(i.id), disabled: !i.exists, onchange: (e) => (e.target.checked ? sel.add(i.id) : sel.delete(i.id)) }),
+          h("span", { class: "nm" }, h("b", { title: i.label }, i.label), i.exists ? h("div", { class: "bar", "aria-hidden": "true" }, h("i", { style: `width:${pct}%` })) : null),
+          h("span", { class: "sz" }, i.exists ? B.bytes(i.bytes) : "absent")));
+      }
+      b.append(list);
+    }
+    b.append(h("div", { class: "cache-actions" },
+      h("button", { class: "btn pri", onclick: async () => { const r = await B.run(() => B.call("maint:clean", { ids: [...sel] })); if (r) { B.toast(`${B.bytes(r.freed)} libérés` + (r.failed ? ` (${r.failed} élément(s) en cours d'utilisation ignoré(s))` : "") + ".", "ok"); this.last = null; this.sel = null; this.cache(true); } } }, "🧹 Nettoyer"),
+      h("button", { class: "btn", onclick: () => this.cache(true) }, "Recalculer")));
     const M = B.S.settings.maintenance;
-    b.append(B.row("Nettoyage automatique", "Au démarrage de Batblox, si le cache dépasse la taille ci-dessous (Roblox doit être fermé).", B.switch(M.autoClean, (v) => B.set({ maintenance: { autoClean: v } }), "Nettoyage automatique")));
-    b.append(B.row("Seuil (Mo)", null, h("input", { type: "number", min: 50, max: 20000, value: M.autoCleanMb, style: "width:100px", "aria-label": "Seuil en mégaoctets", onchange: (e) => B.set({ maintenance: { autoCleanMb: Number(e.target.value) } }) })));
+    b.append(h("div", { class: "cache-opts" },
+      B.row("Nettoyage automatique", "Au démarrage de Batblox, si le cache dépasse la taille ci-dessous (Roblox doit être fermé).", B.switch(M.autoClean, (v) => B.set({ maintenance: { autoClean: v } }), "Nettoyage automatique")),
+      B.row("Seuil (Mo)", null, h("input", { type: "number", min: 50, max: 20000, value: M.autoCleanMb, "aria-label": "Seuil en mégaoctets", onchange: async (e) => { const i = e.target; await B.set({ maintenance: { autoCleanMb: Number(i.value) } }); i.value = B.S.settings.maintenance.autoCleanMb; } }))));
   },
   async logs(show) {
     const b = B.clear(B.$("#m-log"));

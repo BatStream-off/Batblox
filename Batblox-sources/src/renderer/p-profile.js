@@ -71,7 +71,7 @@ B.pages.profile = {
     try {
       const c = await B.call("account:counts");
       if (tok !== this.dTok || !this.det || !B.$("#pf-tabs")) return;
-      Object.assign(this.det.counts, c);
+      this.det.counts = Object.assign(this.det.counts || {}, c);
       this.drawTabs();
     } catch (_) { /* les valeurs de la dernière vérification restent affichées */ }
   },
@@ -95,6 +95,8 @@ B.pages.profile = {
     const card = h("div", { class: "card compact" }, h("h3", { class: "eyebrow" }, "Détails du compte"));
     if (this.detErr && !d) {
       card.append(h("div", { class: "notice bad" }, this.detErr, " ", h("button", { class: "btn sm", onclick: () => this.loadDetails(true) }, "Réessayer")));
+    } else if (d && !p) {
+      card.append(h("div", { class: "notice bad" }, "Profil indisponible pour le moment. ", h("button", { class: "btn sm", onclick: () => this.loadDetails(true) }, "Réessayer")));
     } else if (!d) {
       card.append(h("div", { class: "kv" }, Array.from({ length: 5 }, () => h("div", {}, h("div", { class: "sk sk-line short", style: "margin:0 0 6px" }), h("div", { class: "sk sk-line", style: "margin:0" })))));
     } else {
@@ -123,7 +125,7 @@ B.pages.profile = {
     B.clear(box);
     box.append(h("div", { class: "tabs", role: "tablist", "aria-label": "Sections du profil" }, PF_TABS.map(([id, label, ico, key]) =>
       h("button", { class: "stat tabtile", role: "tab", "aria-selected": this.tab === id ? "true" : "false", onclick: () => this.open(id) },
-        h("div", { class: "stat-ico" }, B.icon(ico)), h("div", {}, h("b", {}, c[key] == null ? "—" : B.num(c[key])), h("span", {}, label))))));
+        h("div", { class: "stat-ico" }, B.icon(ico)), h("div", {}, h("b", { title: c[key] == null ? "" : B.num(c[key]) }, B.numShort(c[key])), h("span", {}, label))))));
   },
 
   open(id) {
@@ -186,7 +188,7 @@ B.pages.profile = {
     B.clear(box); B.clear(more);
     const st = this.state(kind), q = st.q.trim().toLowerCase();
     if (st.err) box.append(h("div", { class: "notice bad" }, st.err, " ", h("button", { class: "btn sm", onclick: () => this.fetchMore(kind, !st.items.length) }, "Réessayer")));
-    const list = q ? st.items.filter((x) => x.name.toLowerCase().includes(q) || x.display.toLowerCase().includes(q)) : st.items;
+    const list = q ? st.items.filter((x) => String(x.name || "").toLowerCase().includes(q) || String(x.display || "").toLowerCase().includes(q)) : st.items;
     if (list.length) box.append(h("div", { class: "list bare" }, list.map((u) => this.row(kind, u))));
     else if (st.busy) box.append(h("div", { class: "row", style: "padding:10px 4px" }, h("span", { class: "dot game" }), "Chargement…"));
     else if (st.loaded && !st.err) box.append(h("div", { class: "empty" }, q ? "Aucun résultat pour cette recherche." : PF_EMPTY[kind]));

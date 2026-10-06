@@ -83,21 +83,21 @@ B.pages.home = {
     const mon = B.S.settings.monitoring;
 
     if (mon.presenceMode !== "all") {
-      fBox.append(h("div", { class: "notice" }, "Seuls les amis marqués 🔔 sont suivis : les autres apparaissent sans statut. ",
+      fBox.append(h("div", { class: "notice" }, "Seuls les amis marqués « Suivi » sont suivis : les autres apparaissent sans statut. ",
         h("button", { class: "btn sm pri", onclick: async () => { await B.set({ monitoring: { presenceMode: "all" } }); await B.run(() => B.call("monitor:checkNow")); this.fillFriends(); } }, "Suivre tous mes amis")));
     }
 
     // --- Mes jeux favoris (raccourcis de lancement) ---
     const favs = B.S.settings.launcher.favorites || [];
     if (favs.length) gBox.append(h("div", { class: "card" }, h("h2", {}, "Mes jeux favoris"),
-      h("div", { class: "games" }, favs.map((g) => h("div", { class: "game" }, h("div", { class: "game-cover fav" }, (g.name.trim()[0] || "?").toUpperCase()),
-        h("div", { class: "game-body" }, h("b", { title: g.name }, g.name), h("span", { class: "muted small" }, "Jeu " + g.placeId)),
+      h("div", { class: "games" }, favs.map((g) => h("div", { class: "game" }, h("div", { class: "game-cover fav" }, B.initial(g.name)),
+        h("div", { class: "game-body" }, h("b", { title: g.name || "" }, g.name || "Jeu " + g.placeId), h("span", { class: "muted small" }, "Jeu " + g.placeId)),
         h("button", { class: "btn sm", onclick: () => B.run(() => B.call("roblox:launch", { placeId: g.placeId })).then((r) => r && B.toast("Roblox se lance…", "ok")) }, "Lancer"))))));
 
     // --- Amis : comme sur Roblox, un rond par ami avec une pastille (gris = hors ligne, bleu = en ligne, vert = en jeu) ---
     const rank = { jeu: 0, studio: 1, en_ligne: 2 }, isOn = (f) => f.status in rank;
     const sorted = list.slice().sort((x, y) => (isOn(y) - isOn(x)) || ((rank[x.status] === undefined ? 9 : rank[x.status]) - (rank[y.status] === undefined ? 9 : rank[y.status]))
-      || (isOn(x) ? 0 : (Number(y.lastOn) || 0) - (Number(x.lastOn) || 0)) || x.name.localeCompare(y.name, "fr"));
+      || (isOn(x) ? 0 : (Number(y.lastOn) || 0) - (Number(x.lastOn) || 0)) || String(x.name || "").localeCompare(String(y.name || ""), "fr"));
     const onCount = sorted.filter(isOn).length, MAX = 40;
     const fCard = h("div", { class: "card" }, h("div", { class: "row" }, h("h2", { class: "grow" }, "Amis en ligne"),
       h("span", { class: "muted small" }, list.length ? onCount + " / " + list.length : ""), h("button", { class: "btn sm ghost", onclick: () => B.go("friends") }, "Tout voir →")));
@@ -106,7 +106,7 @@ B.pages.home = {
       const dotClass = { jeu: "st-game", studio: "st-game", en_ligne: "st-on" };
       const row = h("div", { class: "frow", role: "list", "aria-label": "Mes amis" });
       for (const f of sorted.slice(0, MAX)) {
-        const short = f.name.replace(/\s*\(@[^)]*\)\s*$/, "") || f.name;
+        const fname = String(f.name || "?"), short = fname.replace(/\s*\(@[^)]*\)\s*$/, "") || fname;
         const sub = f.status === "jeu" ? (f.place || "En jeu") : isOn(f) ? B.statusLabel(f.status) : "Hors ligne";
         row.append(h("div", { class: "fbub" + (isOn(f) ? "" : " off"), role: "listitem", title: f.name + " — " + (f.status === "jeu" && f.place ? "En jeu : " + f.place : B.statusLabel(f.status)) },
           h("span", { class: "avw" }, B.avatar(f.id, f.name), h("span", { class: "fb-dot " + (dotClass[f.status] || "st-off"), "aria-label": B.statusLabel(f.status) })),
@@ -117,6 +117,8 @@ B.pages.home = {
       if (sorted.length > MAX) fCard.append(h("div", { class: "muted small", style: "margin-top:4px" }, (sorted.length - MAX) + " autre(s) dans la page Amis."));
     }
     fBox.append(fCard);
+    const rowEl = fCard.querySelector(".frow");
+    if (rowEl) { rowEl.scrollLeft = this.frowScroll || 0; rowEl.addEventListener("scroll", () => { this.frowScroll = rowEl.scrollLeft; }, { passive: true }); }
   },
   // --- Jeux Roblox : les jeux en tendance (classements officiels de Roblox) ---
   async fillTrend(force) {

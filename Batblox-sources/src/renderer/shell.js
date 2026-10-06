@@ -131,13 +131,14 @@ B.renderAccount = () => {
 
 B.switchAccount = async () => {
   const list = B.S.accounts;
+  let closeModal = null;
   const body = h("div", {}, list.map((a) => h("div", { class: "acc-row" + (a.active ? " cur" : ""), role: "button", tabindex: "0",
-    onclick: async () => { if (!a.active) await B.run(() => B.call("accounts:use", a.id)); document.querySelector(".scrim") && document.querySelector(".scrim").remove(); },
+    onclick: async () => { if (!a.active) await B.run(() => B.call("accounts:use", a.id)); if (closeModal) closeModal(true); },
     onkeydown: (e) => { if (e.key === "Enter") e.target.click(); } },
     B.avatar(a.id, a.label, "", a.avatarUrl), h("div", { class: "grow" }, h("b", {}, a.label), h("div", { class: "muted small" }, "@" + a.name)),
     a.active ? h("span", { class: "ok" }, "✓ actif") : (a.status !== "ok" ? h("span", { class: "warn small" }, "à reconnecter") : null))));
   if (!list.length) body.append(h("div", { class: "empty" }, "Aucun compte pour le moment."));
-  await B.modal({ title: "Changer de compte", body, buttons: [{ label: "➕ Ajouter un compte", action: () => { B.addAccount(); return true; } }, { label: "Fermer", value: true }] });
+  await B.modal({ title: "Changer de compte", body, ready: (c) => { closeModal = c; }, buttons: [{ label: "➕ Ajouter un compte", action: () => { B.addAccount(); return true; } }, { label: "Fermer", value: true }] });
 };
 
 B.addAccount = async () => {
@@ -166,6 +167,7 @@ B.onEvent = (evt, payload) => {
   else if (evt === "account") { B.S.active = payload; B.S.chatUnread = 0; B.renderNav(); B.renderAccount(); B.renderPage(); B.pollChat(); }
   else if (evt === "settings") { B.S.settings = payload; B.applyAppearance(); }
   else if (evt === "navigate") B.go(payload);
+  else if (evt === "launch") { B.go("home"); if (B.S.active && B.pages.home.launch) B.pages.home.launch(); }
   else if (evt === "update") { B.S.update = payload; if (payload && payload.latest) B.toast("Mise à jour disponible : Batblox v" + payload.latest.version + ". Va dans Réglages → Mises à jour.", "ok"); }
   else if (evt === "rpc") { const p = B.pages[B.page]; if (B.page === "discord" && p && p.state) p.state(); }
 };

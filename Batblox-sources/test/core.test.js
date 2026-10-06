@@ -226,6 +226,49 @@ test("suivi unique : les anciens 🔔 deviennent des profils suivis complets, le
   assert.ok(monitor.stats.pstats.d["1"], "présence collectée");
 });
 
+test("🔕 (notifications d'une personne) et « Suivi » sont deux réglages indépendants", async () => {
+  const { monitor, w, sent } = makeApp({ monitoring: { presenceMode: "all", gameOnly: ["1"] } });
+  await monitor.checkAll();
+  let v = Object.fromEntries(monitor.friendsView().map((f) => [f.id, f]));
+  assert.equal(v["1"].gameOnly, true, "🔕 actif pour 1");
+  assert.equal(v["1"].tracked, false, "…sans le suivre");
+  assert.equal(v["2"].gameOnly, false);
+  await monitor.addWatched("2", { friends: true, status: true, conn: true });
+  v = Object.fromEntries(monitor.friendsView().map((f) => [f.id, f]));
+  assert.equal(v["2"].tracked, true, "Suivi actif pour 2");
+  assert.equal(v["2"].gameOnly, false, "…sans toucher aux notifications");
+  assert.equal(v["1"].gameOnly, true, "le suivi de 2 ne change pas 🔕 de 1");
+  monitor.removeWatched("2");
+  v = Object.fromEntries(monitor.friendsView().map((f) => [f.id, f]));
+  assert.equal(v["2"].tracked, false);
+  // 🔕 : connexion / déconnexion de 1 non notifiées, mais celles de 3 oui
+  w.friends = { 1: "Alice", 2: "Bob", 3: "Carl" };
+  w.presence = { 1: { type: 1 }, 3: { type: 1 } };
+  monitor.lastChecked = {}; sent.length = 0;
+  await monitor.checkAll();
+  const online = sent.filter((e) => e.type === "online").map((e) => String(e.friendId));
+  assert.ok(!online.includes("1"), "connexion de 1 silencieuse (🔕)");
+});
+
+test("protection du contenu : champs de saisie épargnés, reste bloqué", () => {
+  const { isEditable, isClipboardKey } = require("../src/renderer/guard.js");
+  const el = (tag, extra) => { const o = Object.assign({ tagName: tag, nodeType: 1, type: "text", getAttribute: () => null, isContentEditable: false }, extra || {}); o.closest = (sel) => (sel.split(",").some((x) => { x = x.trim(); return x === tag.toLowerCase() || (x === "[data-allow-copy]" && o.allow) || (x === "[contenteditable]" && o.ce); }) ? o : null); return o; };
+  assert.equal(isEditable(el("INPUT")), true);
+  assert.equal(isEditable(el("INPUT", { type: "search" })), true);
+  assert.equal(isEditable(el("INPUT", { type: "password" })), true);
+  assert.equal(isEditable(el("INPUT", { type: "checkbox" })), false, "case à cocher : pas un champ de saisie");
+  assert.equal(isEditable(el("TEXTAREA")), true);
+  assert.equal(isEditable(el("DIV")), false);
+  assert.equal(isEditable(el("DIV", { allow: true })), true, "data-allow-copy");
+  assert.equal(isEditable(null), false);
+  assert.equal(isClipboardKey({ key: "c", ctrlKey: true }), true);
+  assert.equal(isClipboardKey({ key: "V", ctrlKey: true }), true);
+  assert.equal(isClipboardKey({ key: "a", metaKey: true }), true);
+  assert.equal(isClipboardKey({ key: "Insert", shiftKey: true }), true);
+  assert.equal(isClipboardKey({ key: "c" }), false, "la lettre seule reste libre");
+  assert.equal(isClipboardKey({ key: "F12" }), false, "F12 (console) non bloqué");
+});
+
 test("monitor : les profils suivis sont étalés (3 par passage, un toutes les 4 min) pour éviter les 429", async () => {
   const { monitor, w } = makeApp({ monitoring: { friends: false, presence: false, requests: false, follows: false } });
   for (const id of ["11", "12", "13", "14", "15"]) await monitor.addWatched(id, { friends: true, status: false, conn: false });
@@ -335,16 +378,72 @@ test("personnalisation : sauvegarde, application, restauration, réapplication a
   assert.equal(fs.readFileSync(path.join(v2, "content/sounds/ouch.ogg"), "utf8"), "MIEN");
 });
 
+test("personnalisation : réactivation depuis la source mémorisée (sans réimporter)", () => {
+  const dir = tmp();
+  const d = path.join(dir, "Versions", "version-1"); fs.mkdirSync(path.join(d, "content", "sounds"), { recursive: true });
+  fs.writeFileSync(path.join(d, "RobloxPlayerBeta.exe"), "x"); fs.writeFileSync(path.join(d, "content", "sounds", "ouch.ogg"), "ORIGINAL");
+  const launcher = new RobloxLauncher({ env: { LOCALAPPDATA: dir }, platform: "win32", execFile() {}, openExternal() {}, accounts: {}, monitor: {}, logger });
+  launcher.roots = () => [path.join(dir, "Versions")];
+  const custom = new Customization({ storage: new Storage(tmp(), { delay: 5 }), launcher, logger, dataDir: tmp() });
+  assert.throws(() => custom.reapply("sound"), /Aucun fichier mémorisé/);
+  assert.throws(() => custom.reapply("inconnu"), /inconnu/);
+  const mine = path.join(tmp(), "mon.ogg"); fs.writeFileSync(mine, "MIEN");
+  custom.apply("sound", [mine]);
+  custom.restore("sound");
+  assert.equal(custom.status().items.sound.active, false);
+  assert.equal(fs.readFileSync(path.join(d, "content/sounds/ouch.ogg"), "utf8"), "ORIGINAL");
+  custom.reapply("sound");
+  assert.equal(custom.status().items.sound.active, true);
+  assert.equal(fs.readFileSync(path.join(d, "content/sounds/ouch.ogg"), "utf8"), "MIEN");
+  custom.restore("sound"); fs.unlinkSync(mine);
+  assert.throws(() => custom.reapply("sound"), /n'existe plus/);
+});
+
+test("interface : initiales (accents, emojis), grands nombres et octets en français", () => {
+  const src = fs.readFileSync(path.join(__dirname, "../src/renderer/lib.js"), "utf8");
+  const grab = (name) => { const m = src.match(new RegExp("^B\\." + name + " = .*$", "m")); assert.ok(m, "B." + name + " introuvable"); return m[0]; };
+  const B = {}; new Function("B", ["num", "numShort", "initial", "bytes"].map(grab).join("\n"))(B);
+  assert.equal(B.initial("Équipe Blox"), "É");
+  assert.equal(B.initial("[🎃 HALLOWEEN] Adopt Me!"), "H");
+  assert.equal(B.initial("🍕🍕"), "🍕");
+  assert.equal(B.initial(""), "?"); assert.equal(B.initial(null), "?");
+  assert.equal(B.numShort(1234567), "1,23\u00a0M"); assert.equal(B.numShort(123456), "123\u00a0k");
+  assert.equal(B.numShort(12345), B.num(12345)); assert.equal(B.numShort(null), "—");
+  assert.equal(B.bytes(734003200), "700,0 Mo"); assert.equal(B.bytes(2048), "2 Ko"); assert.equal(B.bytes(5368709120), "5,00 Go");
+});
+
+test("interface : aucun append() natif ne reçoit null (sinon le mot « null » s'affiche à l'écran)", () => {
+  const dir = path.join(__dirname, "../src/renderer"); const bad = [];
+  for (const f of fs.readdirSync(dir).filter((x) => x.endsWith(".js"))) {
+    const src = fs.readFileSync(path.join(dir, f), "utf8"); const re = /\.(append|prepend)\(/g; let m;
+    while ((m = re.exec(src))) {
+      let i = re.lastIndex, depth = 1, str = null, cur = "", args = [];
+      for (; i < src.length && depth > 0; i++) {
+        const c = src[i];
+        if (str) { cur += c; if (c === "\\") cur += src[++i]; else if (c === str) str = null; continue; }
+        if (c === '"' || c === "'" || c === "`") { str = c; cur += c; }
+        else if ("([{".includes(c)) { depth++; cur += c; }
+        else if (")]}".includes(c)) { depth--; if (depth > 0) cur += c; }
+        else if (c === "," && depth === 1) { args.push(cur.trim()); cur = ""; }
+        else cur += c;
+      }
+      args.push(cur.trim());
+      for (const a of args) if (/\?[^?]*:\s*(null|undefined)$/.test(a) || /^(B\.sparkline|B\.chartSummary)\b/.test(a)) bad.push(f + ":" + src.slice(0, m.index).split("\n").length + " → " + a.slice(-70));
+    }
+  }
+  assert.deepEqual(bad, []);
+});
+
 test("maintenance : cache mesuré / nettoyé, intégrité sans faux 100 %", async () => {
   const local = tmp();
   fs.mkdirSync(path.join(local, "Roblox", "logs"), { recursive: true });
   fs.writeFileSync(path.join(local, "Roblox", "logs", "a.log"), "x".repeat(2048));
   const launcher = { processes: async () => [], install: () => null };
   const m = new Maintenance({ env: { LOCALAPPDATA: local }, launcher, accounts: { active: () => null }, logger, getSettings: () => DEFAULT_SETTINGS });
-  assert.equal(m.cacheInfo().total, 2048);
+  assert.equal((await m.cacheInfo()).total, 2048);
   const r = await m.clean(["logs"]);
   assert.equal(r.freed, 2048);
-  assert.equal(m.cacheInfo().total, 0);
+  assert.equal((await m.cacheInfo()).total, 0);
   const i = await m.integrity(null);
   assert.equal(i.state, "Fichier manquant");
   assert.notEqual(i.percent, 100);

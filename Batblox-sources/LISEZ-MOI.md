@@ -40,6 +40,28 @@ Chaque fichier contient `schemaVersion` pour permettre les futures migrations.
 | Bouton « Suivre » sur roblox.com | N'existe plus (il dépendait du navigateur) : on ajoute un profil par pseudo ou identifiant dans **Profils suivis**. |
 | Messages (chat Roblox) | Page **Messages** (menu de gauche) : conversations du compte actif, privées et de groupe, avec lecture de l'historique et réponse directe (Entrée pour envoyer, Maj+Entrée pour un retour à la ligne). Pastille de non-lus dans le menu ; rafraîchissement automatique tant que la page est ouverte (jamais fenêtre cachée). Roblox a supprimé en 2024 la boîte de réception « messages privés » entre joueurs : seul le chat est branché. |
 
+## Nouveautés de la version 1.5.3 (corrections)
+**Bugs corrigés**
+- Le mot « null » ne s'affiche plus (page Roblox, statistiques d'une personne). Un test automatique surveille ce piège.
+- Messages : le panneau de droite indique « Choisis une conversation… » une fois la liste chargée.
+- Initiales des avatars et des jeux : accents et emojis gérés (« Équipe » → É ; « [🎃 …] Adopt Me! » → H).
+- Personnalisation : le bouton **Réappliquer** réactive un son, une police ou des curseurs déjà importés, sans devoir les réimporter après « Désactiver » ou une mise à jour de Roblox.
+- Réglages : un champ numérique affiche la valeur réellement retenue (ex. 5 s → 15 s) ; ntfy signale un sujet refusé.
+- Profils suivis : plus de cartes en double ; interrupteurs sans `<label>` imbriqués.
+- Fenêtres et menus : « Changer de compte » se ferme proprement ; Échap ne ferme que la fenêtre du dessus ; le menu ⋮ se retourne près du bas de l'écran.
+- Accueil : la rangée d'amis garde sa position de défilement à chaque vérification.
+- Amis : tri « dernière activité » (connectés d'abord), tri tolérant aux statuts inconnus, avis « amis inactifs » unique.
+- Zone de notification : « Lancer Roblox » lance réellement Roblox. Le fond de la fenêtre suit le thème (plus de flash sombre avec un thème clair).
+- Miniatures d'avatars : un échec de chargement n'est mémorisé que 2 minutes (au lieu d'une heure). Studio s'affiche comme « Dans Studio » dans Profils suivis.
+
+**Cohérence graphique**
+- Pastilles de statut identiques partout, comme sur Roblox : **gris** hors ligne, **bleu** en ligne, **vert** en jeu (la liste d'amis, la carte Roblox et les statistiques affichaient l'inverse de l'accueil).
+- Mon profil : grands nombres abrégés (1 234 567 → « 1,23 M », valeur exacte en infobulle) ; tuiles et onglets sans débordement, y compris à 900 px de large.
+- Découvrir : recherche et « Actualiser » sur la ligne du titre. Comptes : les boutons passent sous le nom au lieu de l'écraser. Batman : « Rejoindre » reste dans sa bulle.
+- Décimales à la française (« 700,0 Mo »). Titre « Intégrité » sans emoji isolé.
+
+**Vérification de cette version** : 70 tests automatiques, plus un balayage de toutes les pages dans 6 thèmes (1180×780 et 900×600) avec des données simulées dans Chromium. Ce n'est pas un test dans Electron sous Windows : voir ci-dessous.
+
 ## Limites de ce que j'ai pu vérifier
 La logique interne est couverte par des tests automatiques et l'interface a été affichée et parcourue dans l'application réelle.
 **Je n'ai pas pu tester sous Windows** avec de vrais comptes Roblox : la connexion, le lancement du client, la lecture des

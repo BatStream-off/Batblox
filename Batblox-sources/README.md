@@ -5,7 +5,7 @@
 **Le centre de contrôle Roblox pour Windows.**
 Lanceur, amis, profils suivis, historique, statistiques et notifications dans une seule application, entièrement en français.
 
-![Version](https://img.shields.io/badge/version-1.5.0-2563F2)
+![Version](https://img.shields.io/badge/version-1.5.3-2563F2)
 ![Plateforme](https://img.shields.io/badge/plateforme-Windows-0078D4)
 ![Electron](https://img.shields.io/badge/Electron-33-47848F)
 
@@ -61,6 +61,10 @@ npm run dist         # construit l'installeur et la version portable (dossier di
 ```
 
 Sous Windows, tu peux aussi double-cliquer sur `lancer-batblox.bat` (essai rapide) ou `construire-installeur.bat` (installeur).
+
+> **Icône de l'application** : elle est intégrée à l'exécutable par `electron-builder` (outil `rcedit`, activé par `signAndEditExecutable: true` dans `package.json`). Ne remets pas cette option à `false` : l'exécutable, les raccourcis et l'installeur perdraient l'icône `build/icon.ico`. Si `npm run dist` échoue en local avec « Cannot create symbolic link », active le **Mode développeur** de Windows (ou lance le terminal en administrateur) ; le workflow GitHub n'a pas ce problème.
+>
+> **Protection du contenu** : `src/renderer/guard.js` bloque la sélection, le copier / couper / coller, le menu contextuel et le glisser-déposer, sauf dans les champs de saisie. Ajoute `data-allow-copy` à un bloc pour y autoriser la sélection.
 
 ### Structure
 

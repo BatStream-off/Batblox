@@ -45,8 +45,12 @@ B.ago = (ts) => {
   return `il y a ${Math.floor(s / 86400)} j`;
 };
 B.dur = (sec) => { sec = Math.round(sec); if (sec < 60) return sec + " s"; if (sec < 3600) return Math.round(sec / 60) + " min"; return Math.floor(sec / 3600) + " h " + pad(Math.round((sec % 3600) / 60)) + " min"; };
-B.bytes = (n) => (n < 1024 ? n + " o" : n < 1048576 ? (n / 1024).toFixed(0) + " Ko" : n < 1073741824 ? (n / 1048576).toFixed(1) + " Mo" : (n / 1073741824).toFixed(2) + " Go");
+B.bytes = (n) => { n = Number(n) || 0; const fr = (v, d) => v.toFixed(d).replace(".", ","); return n < 1024 ? n + " o" : n < 1048576 ? fr(n / 1024, 0) + " Ko" : n < 1073741824 ? fr(n / 1048576, 1) + " Mo" : fr(n / 1073741824, 2) + " Go"; };
 B.num = (n) => (n == null ? "—" : Number(n).toLocaleString("fr-FR"));
+// Grand nombre lisible dans une petite tuile : 1 234 567 → « 1,23 M », 123 456 → « 123 k » (la valeur exacte reste dans l'infobulle).
+B.numShort = (n) => { if (n == null) return "—"; n = Number(n); const f = (v, d) => v.toLocaleString("fr-FR", { maximumFractionDigits: d }); return n >= 1e6 ? f(n / 1e6, 2) + "\u00a0M" : n >= 1e5 ? f(n / 1e3, 0) + "\u00a0k" : B.num(n); };
+// Initiale d'un nom : première lettre ou chiffre (accents compris) ; saute les crochets et emojis de tête sans couper un emoji en deux.
+B.initial = (name) => { const t = String(name == null ? "" : name).trim(); const m = t.match(/[\p{L}\p{N}]/u); return (m ? m[0] : Array.from(t)[0] || "?").toUpperCase(); };
 const DAYS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
 B.DAYS = DAYS;
 B.DAYS_LONG = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"];
@@ -94,10 +98,10 @@ B.updateRoblox = async (running, onState, onStart) => {
   return false;
 };
 
-B.modal = ({ title, body, buttons, wide, onClose }) => new Promise((resolve) => {
+B.modal = ({ title, body, buttons, wide, onClose, ready }) => new Promise((resolve) => {
   const layer = B.$("#layer");
   const close = (v) => { scrim.remove(); document.removeEventListener("keydown", onKey); if (onClose) onClose(); resolve(v); };
-  const onKey = (e) => { if (e.key === "Escape") close(undefined); };
+  const onKey = (e) => { if (e.key !== "Escape") return; const all = layer.querySelectorAll(".scrim"); if (all[all.length - 1] === scrim) close(undefined); };
   const foot = h("div", { class: "foot" }, (buttons || [{ label: "Fermer", value: true }]).map((b) =>
     h("button", { class: "btn " + (b.cls || ""), onclick: async () => { if (b.action) { const r = await b.action(); if (r === false) return; close(r === undefined ? b.value : r); } else close(b.value); } }, b.label)));
   const scrim = h("div", { class: "scrim", onmousedown: (e) => { if (e.target === scrim) close(undefined); } },
@@ -106,23 +110,28 @@ B.modal = ({ title, body, buttons, wide, onClose }) => new Promise((resolve) => 
   document.addEventListener("keydown", onKey);
   const first = scrim.querySelector("input, button.pri, button");
   if (first) first.focus();
+  if (ready) ready(close);
 });
 B.confirm = (message, okLabel = "Confirmer", danger = false) =>
   B.modal({ title: "Confirmation", body: h("p", {}, message), buttons: [{ label: "Annuler", value: false }, { label: okLabel, value: true, cls: danger ? "bad" : "pri" }] });
 
 B.menu = (anchor, items) => {
   const layer = B.$("#layer");
-  const old = B.$(".menu"); if (old) old.remove();
+  if (B._closeMenu) B._closeMenu();
   const r = anchor.getBoundingClientRect();
   const m = h("div", { class: "menu", role: "menu" }, items.map((it) =>
     it === "-" ? h("div", { class: "sep" }) : it.node ? it.node : h("button", { role: "menuitem", onclick: () => { close(); it.action(); } }, it.label)));
-  const close = () => { m.remove(); document.removeEventListener("mousedown", away, true); document.removeEventListener("keydown", esc); };
+  const close = () => { m.remove(); document.removeEventListener("mousedown", away, true); document.removeEventListener("keydown", esc); if (B._closeMenu === close) B._closeMenu = null; };
   const away = (e) => { if (!m.contains(e.target) && !anchor.contains(e.target)) close(); };
   const esc = (e) => { if (e.key === "Escape") close(); };
   layer.append(m);
-  m.style.top = r.bottom + 6 + "px";
+  const below = r.bottom + 6, mh = m.offsetHeight;
+  let top = below;
+  if (below + mh > window.innerHeight - 8) { top = r.top - 6 - mh; if (top < 8) top = Math.max(8, window.innerHeight - mh - 8); }
+  m.style.top = top + "px";
   m.style.left = Math.max(8, Math.min(window.innerWidth - m.offsetWidth - 8, r.right - m.offsetWidth)) + "px";
   setTimeout(() => { document.addEventListener("mousedown", away, true); document.addEventListener("keydown", esc); }, 0);
+  B._closeMenu = close;
   return close;
 };
 
@@ -132,11 +141,11 @@ B.switch = (checked, onChange, label) => {
   return h("label", { class: "switch" }, i, h("i"));
 };
 B.row = (label, desc, control) => h("div", { class: "field-row" }, h("div", { class: "lbl" }, label, desc ? h("small", {}, desc) : null), control);
-B.dot = (status) => h("span", { class: "dot " + ({ en_ligne: "on", jeu: "game", studio: "game", hors_ligne: "off" }[status] || "off"), title: B.statusLabel(status) });
+B.dot = (status) => h("span", { class: "dot " + ({ en_ligne: "s-on", jeu: "s-game", studio: "s-game", hors_ligne: "s-off" }[status] || "s-off"), title: B.statusLabel(status) });
 B.statusLabel = (s) => ({ en_ligne: "En ligne", jeu: "En jeu", studio: "Dans Studio", hors_ligne: "Hors ligne", inconnu: "Inconnu" }[s] || "Inconnu");
 
 B.avatar = (id, name, cls, url) => {
-  const el = h("span", { class: "av " + (cls || "") }, (name || "?").replace(/^[^A-Za-z0-9]*/, "").charAt(0).toUpperCase() || "?");
+  const el = h("span", { class: "av " + (cls || "") }, B.initial(name));
   const set = (u) => { if (u) { el.textContent = ""; el.append(h("img", { src: u, alt: "", style: "width:100%;height:100%;object-fit:cover" })); } };
   if (url) { set(url); return el; }
   if (!id) return el;
@@ -307,7 +316,7 @@ B.barChart = (rows, { height = 220, width = 640, key = "bars" } = {}) => {
   for (const v of ticks) svg.append(s("line", { x1: L, x2: width - R, y1: y(v), y2: y(v), class: v === 0 ? "axis" : "grid" }), s("text", { x: L - 8, y: y(v) + 3.5, "text-anchor": "end" }, String(v)));
   // Barre de vFrom à vTo, extrémité arrondie côté vTo (rnd = false pour un segment intérieur)
   const bar = (bx, vFrom, vTo, cls, rnd = true) => {
-    if (vFrom === vTo) return null;
+    if (vFrom === vTo) return s("g", {});
     const ya = y(vFrom), yb = y(vTo), top = Math.min(ya, yb), bot = Math.max(ya, yb), r = rnd ? Math.min(5, bw / 2, bot - top) : 0, up = vTo > vFrom, x2 = bx + bw;
     const d = up ? `M${bx} ${bot} V${top + r} Q${bx} ${top} ${bx + r} ${top} H${x2 - r} Q${x2} ${top} ${x2} ${top + r} V${bot} Z`
       : `M${bx} ${top} V${bot - r} Q${bx} ${bot} ${bx + r} ${bot} H${x2 - r} Q${x2} ${bot} ${x2} ${bot - r} V${top} Z`;

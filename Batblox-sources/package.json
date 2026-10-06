@@ -1,7 +1,7 @@
 {
   "name": "batblox",
   "productName": "Batblox",
-  "version": "1.5.0",
+  "version": "1.5.3",
   "description": "Batblox : centre de contrôle Roblox pour Windows (launcher, amis, profils suivis, historique, statistiques, notifications).",
   "main": "src/main/main.js",
   "author": "Batblox",
@@ -39,9 +39,12 @@
         "nsis",
         "portable"
       ],
-      "signAndEditExecutable": false
+      "signAndEditExecutable": true
     },
     "nsis": {
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "installerHeaderIcon": "build/icon.ico",
       "oneClick": false,
       "perMachine": false,
       "allowToChangeInstallationDirectory": true,

@@ -3,7 +3,7 @@ const path = require("path");
 const fs = require("fs");
 const { execFile } = require("child_process");
 const crypto = require("crypto");
-const { app, BrowserWindow, Tray, Menu, Notification, ipcMain, dialog, shell, session, safeStorage, nativeImage, net } = require("electron");
+const { app, BrowserWindow, Tray, Menu, Notification, ipcMain, dialog, shell, session, safeStorage, nativeImage, nativeTheme, net } = require("electron");
 
 const { Storage } = require("./core/storage");
 const { DEFAULT_SETTINGS, merge, DISCORD_RE, NTFY_TOPIC_RE, PROXY_DOMAIN_RE, trackPatch } = require("./core/defaults");
@@ -51,6 +51,7 @@ function sanitize(next) {
   s.notifications.ntfy.server = /^https:\/\//i.test(s.notifications.ntfy.server) ? s.notifications.ntfy.server : "https://ntfy.sh";
   s.maintenance.autoCleanMb = Math.min(20000, Math.max(50, Math.round(Number(s.maintenance.autoCleanMb) || 500)));
   s.monitoring.favorites = [...new Set((s.monitoring.favorites || []).map(String).filter((x) => /^\d+$/.test(x)))];
+  s.monitoring.gameOnly = [...new Set((s.monitoring.gameOnly || []).map(String).filter((x) => /^\d+$/.test(x)))];
   s.network.publicProxy = PROXY_DOMAIN_RE.test(String(s.network.publicProxy || "").trim()) ? String(s.network.publicProxy).trim().toLowerCase() : "";
   s.updates.checkOnStart = s.updates.checkOnStart !== false;
   if (!CLIENT_IDS.includes(s.launcher.client)) s.launcher.client = "auto";
@@ -177,9 +178,17 @@ function desktopNotify(title, body, { sound } = {}) {
 }
 
 // ---------------------------------------------------------------- Fenêtre principale
+// Couleur de fond de la fenêtre avant que l'interface ne s'affiche : celle du thème choisi (évite un flash sombre avec un thème clair).
+const THEME_BG = { light: "#E4E8FA", dark: "#161930", bat: "#0D0A1E", joker: "#0F0720", batman: "#0A0B0D", inde: "#FFF6E8" };
+function windowBg() {
+  let t = settings.appearance && settings.appearance.theme;
+  if (t === "auto" || !THEME_BG[t]) t = nativeTheme.shouldUseDarkColors ? "dark" : "light";
+  return THEME_BG[t];
+}
+
 function createWindow(hidden) {
   win = new BrowserWindow({
-    width: 1180, height: 780, minWidth: 900, minHeight: 600, show: !hidden, title: "Batblox", icon: ICON, backgroundColor: "#0b0c10", autoHideMenuBar: true,
+    width: 1180, height: 780, minWidth: 900, minHeight: 600, show: !hidden, title: "Batblox", icon: ICON, backgroundColor: windowBg(), autoHideMenuBar: true,
     webPreferences: { preload: path.join(__dirname, "preload.js"), contextIsolation: true, sandbox: true, nodeIntegration: false, spellcheck: false }
   });
   win.setMenuBarVisibility(false);
@@ -216,7 +225,7 @@ function buildTrayMenu() {
     { label: "Ouvrir Batblox", click: showWindow },
     { label: "Vérifier maintenant", click: () => monitor.checkAll({ force: true }) },
     { label: snap.paused ? "Reprendre le monitoring" : "Mettre le monitoring en pause", click: () => toggleMonitoring() },
-    { label: "Lancer Roblox", click: () => { showWindow(); send("navigate", "home"); } },
+    { label: "Lancer Roblox", click: () => { showWindow(); send("launch"); } },
     { type: "separator" },
     { label: "Quitter", click: () => { quitting = true; app.quit(); } }
   ]);
@@ -244,7 +253,7 @@ async function avatarsFor(ids) {
   const now = Date.now();
   for (const id of ids.map(String).filter((x) => /^\d+$/.test(x)).slice(0, 200)) {
     const c = avatarCache.get(id);
-    if (c && now - c.ts < 3600000) out[id] = c.url; else need.push(id);
+    if (c && now - c.ts < (c.url ? 3600000 : 120000)) { if (c.url) out[id] = c.url; } else need.push(id);
   }
   const client = accounts.activeClient();
   if (need.length && client && !client.isLimited("thumbnails.roblox.com")) {
@@ -368,12 +377,30 @@ let discoverCache = null;
 const SORT_FR = [[/^popular|top ?playing/i, "Populaires en ce moment"], [/top ?rated|toprated/i, "Les mieux notés"], [/up ?and ?coming|trending/i, "Tendances"], [/most ?favorited/i, "Les plus ajoutés en favoris"], [/featured/i, "À la une"], [/revisited|top ?revisited/i, "Jeux auxquels on revient"]];
 const SORT_SKIP = /friend|continue|recent|favorites?$|my ?|sponsor|recommended.for|ad(s|vert)/i;
 
+// Cache d'icônes partagé (1 h) : une icône déjà vue n'est jamais redemandée à Roblox (Découvrir, Accueil, recherche, « Tout voir »).
+const iconCache = new Map();
+const ICON_TTL = 60 * 60 * 1000;
+function cachedIcon(pid) { const e = iconCache.get(String(pid)); return e && Date.now() - e.ts < ICON_TTL ? e.url : null; }
+async function iconsFor(c, pids) {
+  const ids = [...new Set((pids || []).map(String))];
+  const need = ids.filter((id) => !cachedIcon(id));
+  const chunks = [];
+  for (let i = 0; i < need.length; i += 100) chunks.push(need.slice(i, i + 100));
+  const parts = await Promise.all(chunks.map((ch) => c.placeIcons(ch))); // lots en parallèle (avant : l'un après l'autre)
+  const now = Date.now();
+  if (iconCache.size > 4000) iconCache.clear();
+  for (const part of parts) for (const [pid, url] of Object.entries(part || {})) iconCache.set(pid, { url, ts: now });
+  const out = {};
+  for (const id of ids) { const u = cachedIcon(id); if (u) out[id] = u; }
+  return out;
+}
+// Version qui attend les icônes (Accueil).
 async function attachIcons(c, games) {
-  const ids = [...new Set(games.map((g) => g.pid))];
-  let icons = {};
-  for (let i = 0; i < ids.length; i += 100) icons = Object.assign(icons, await c.placeIcons(ids.slice(i, i + 100)));
+  const icons = await iconsFor(c, games.map((g) => g.pid));
   for (const g of games) g.icon = icons[g.pid] || null;
 }
+// Version instantanée pour « Découvrir » : n'utilise que le cache ; l'interface charge les icônes manquantes après l'affichage.
+function attachCachedIcons(games) { for (const g of games) g.icon = cachedIcon(g.pid); }
 // Pause ciblée : seul le service réellement concerné bloque, et le message donne la durée restante.
 function limitedErr(c, host) {
   if (!c.isLimited(host)) return;
@@ -387,42 +414,66 @@ function discoverClient() {
   return c;
 }
 
+const DISCOVER_STALE_MAX = 60 * 60 * 1000; // une page un peu ancienne s'affiche tout de suite et se rafraîchit en arrière-plan
+let discoverInflight = null;
 async function discoverGames(force) {
   const acc = accounts.activeId();
-  if (!force && discoverCache && discoverCache.acc === acc && Date.now() - discoverCache.ts < DISCOVER_TTL) return discoverCache.data;
+  const hit = discoverCache && discoverCache.acc === acc ? discoverCache : null;
+  if (!force && hit) {
+    const age = Date.now() - hit.ts;
+    if (age < DISCOVER_TTL) return hit.data;
+    if (age < DISCOVER_STALE_MAX) { buildDiscover(acc).catch(() => {}); return hit.data; }
+  }
+  return buildDiscover(acc);
+}
+// Un seul chargement à la fois : deux demandes simultanées (page + actualisation) partagent la même requête.
+function buildDiscover(acc) {
+  if (discoverInflight && discoverInflight.acc === acc) return discoverInflight.p;
+  const p = loadDiscover(acc).finally(() => { if (discoverInflight && discoverInflight.p === p) discoverInflight = null; });
+  discoverInflight = { acc, p };
+  return p;
+}
+async function loadDiscover(acc) {
   const c = accounts.activeClient();
   if (!c) throw new Error("Ajoute d'abord un compte Roblox pour découvrir des jeux.");
   limitedErr(c, "games.roblox.com");
-  const sections = [], errors = [];
-  // 1) Jeux proches de tes derniers jeux
+  const errors = [];
+  // Tout part en parallèle : la liste des classements ET les « jeux proches » de tes derniers jeux (services différents, aucune dépendance).
+  const sortsP = c.gameSorts().then((all) => ({ all }), (e) => ({ e }));
   const snap = monitor.snapshot();
   const base = [];
   for (const g of ((snap && snap.recentGames) || []).concat((settings.launcher.favorites || []).map((f) => ({ pid: f.placeId, name: f.name })))) {
     if (g.pid && !base.some((b) => b.pid === String(g.pid))) base.push({ pid: String(g.pid), name: g.name });
     if (base.length >= 2) break;
   }
-  for (const b of base) {
+  const simP = Promise.all(base.map(async (b) => {
     try {
       const uid = await c.universeOf(b.pid);
-      if (!uid) continue;
+      if (!uid) return null;
       const games = (await c.similarGames(uid, 12)).filter((g) => g.pid !== b.pid);
-      if (games.length) sections.push({ id: "sim-" + b.pid, title: "Si tu aimes " + (b.name || "ce jeu"), games });
-    } catch (e) { errors.push(e.message); if (e.status === 429) break; }
-  }
-  // 2) Classements officiels
-  try {
-    const sorts = (await c.gameSorts()).filter((s) => !SORT_SKIP.test(s.name + " " + s.title)).slice(0, 5);
-    for (const s of sorts) {
+      return games.length ? { id: "sim-" + b.pid, title: "Si tu aimes " + (b.name || "ce jeu"), games } : null;
+    } catch (e) { errors.push(e.message); return null; }
+  }));
+  const sections = [];
+  const sr = await sortsP;
+  let sortSections = [];
+  if (sr.e) { errors.push(sr.e.message); if (c._exploreErr) errors.push(c._exploreErr); }
+  else {
+    const sorts = sr.all.filter((s) => !SORT_SKIP.test(s.name + " " + s.title)).slice(0, 5);
+    const got = await Promise.all(sorts.map(async (s) => {
       try {
-        const games = await c.gamesBySort(s, 18);
-        if (!games.length) continue;
+        const games = await c.gamesBySort(s, 18); // avec l'API « explore », les jeux sont déjà dans la réponse : aucune requête de plus
+        if (!games.length) return null;
         const fr = SORT_FR.find(([re]) => re.test(s.name) || re.test(s.title));
-        sections.push({ id: "sort-" + s.token, token: s.token, title: fr ? fr[1] : (s.title || s.name), games });
-      } catch (e) { errors.push(e.message); if (e.status === 429) break; }
-    }
-  } catch (e) { errors.push(e.message); if (c._exploreErr) errors.push(c._exploreErr); }
+        return { id: "sort-" + s.token, token: s.token, title: fr ? fr[1] : (s.title || s.name), games };
+      } catch (e) { errors.push(e.message); return null; }
+    }));
+    sortSections = got.filter(Boolean);
+  }
+  for (const x of await simP) if (x) sections.push(x);
+  sections.push(...sortSections);
   if (!sections.length) throw new Error("Roblox n'a renvoyé aucune suggestion pour le moment" + (errors.length ? " (" + String(errors[0]).slice(0, 120) + ")" : "") + ". Réessaie plus tard.");
-  await attachIcons(c, sections.flatMap((s) => s.games));
+  attachCachedIcons(sections.flatMap((s) => s.games)); // pas d'attente : le reste des icônes se charge après l'affichage
   const data = { ts: Date.now(), sections };
   discoverCache = { acc, ts: Date.now(), data };
   return data;
@@ -440,15 +491,15 @@ async function trendingGames(force) {
   const picked = [];
   for (const re of TREND_ORDER) { const s = sorts.find((x) => re.test(key(x)) && !picked.includes(x)); if (s) picked.push(s); }
   for (const s of sorts) { if (picked.length >= 3) break; if (!picked.includes(s)) picked.push(s); }
-  const sections = []; let lastErr = null;
-  for (const s of picked.slice(0, 3)) {
+  let lastErr = null;
+  const sections = (await Promise.all(picked.slice(0, 3).map(async (s) => {
     try {
       const games = await c.gamesBySort(s, 12);
-      if (!games.length) continue;
+      if (!games.length) return null;
       const fr = SORT_FR.find(([re]) => re.test(s.name) || re.test(s.title));
-      sections.push({ id: s.token, token: s.token, title: fr ? fr[1] : (s.title || s.name), games });
-    } catch (e) { lastErr = e; if (e.status === 429) break; }
-  }
+      return { id: s.token, token: s.token, title: fr ? fr[1] : (s.title || s.name), games };
+    } catch (e) { lastErr = e; return null; }
+  }))).filter(Boolean);
   if (!sections.length) throw new Error("Roblox n'a renvoyé aucun jeu en tendance pour le moment" + (lastErr ? " (" + String(lastErr.message).slice(0, 100) + ")" : "") + ". Réessaie plus tard.");
   await attachIcons(c, sections.flatMap((s) => s.games));
   const data = { ts: Date.now(), sections };
@@ -485,7 +536,7 @@ const api = {
     setSettings(sanitize(merge(settings, patch)));
     app.setLoginItemSettings({ openAtLogin: !!settings.system.launchAtStartup, args: ["--cache"] });
     if (before.monitoring.intervalSec !== settings.monitoring.intervalSec || before.monitoring.enabled !== settings.monitoring.enabled) monitor.kick(800);
-    rpc.sync().then(() => send("rpc", rpc.state()));
+    rpc.sync().then(() => send("rpc", rpc.state())).catch(() => {});
     refreshTray();
     send("settings", settings);
     return settings;
@@ -499,7 +550,7 @@ const api = {
   "accounts:check": (id) => accounts.check(String(id)),
   "accounts:logout": (id) => accounts.logout(String(id)),
   "avatars": (ids) => avatarsFor(ids || []),
-  "gameicons": async (ids) => { const c = accounts.activeClient(); return c && !c.isLimited("thumbnails.roblox.com") ? c.placeIcons((ids || []).slice(0, 40)) : {}; },
+  "gameicons": async (ids) => { const c = accounts.activeClient(); return c && !c.isLimited("thumbnails.roblox.com") ? iconsFor(c, (ids || []).slice(0, 120)) : {}; },
 
   "chat:unread": () => chatCall(async (c) => ({ unread: await c.chatUnread() })),
   "chat:list": (p) => chatCall((c, me) => c.chatConversations(me, String((p && p.cursor) || "").slice(0, 400))),
@@ -509,11 +560,11 @@ const api = {
 
   "discover:games": (p) => discoverGames(!!(p && p.force)),
   "discover:trending": (p) => trendingGames(!!(p && p.force)),
-  "discover:sort": async (p) => { const c = discoverClient(); const r = await c.sortContent(String((p && p.id) || ""), (p && p.page) || ""); await attachIcons(c, r.games); return r; },
+  "discover:sort": async (p) => { const c = discoverClient(); const r = await c.sortContent(String((p && p.id) || ""), (p && p.page) || ""); attachCachedIcons(r.games); return r; },
   "discover:search": async (p) => {
     const q = String((p && p.q) || "").trim().slice(0, 60);
     if (q.length < 2) return { games: [], next: "" };
-    const c = discoverClient(); const r = await c.searchGames(q, (p && p.page) || ""); await attachIcons(c, r.games); return r;
+    const c = discoverClient(); const r = await c.searchGames(q, (p && p.page) || ""); attachCachedIcons(r.games); return r;
   },
 
   "monitor:snapshot": () => monitor.snapshot(),
@@ -580,7 +631,7 @@ const api = {
   "friends:idle": () => monitor.idleFriends(),
   "friends:stats": (id) => friendStats(String(id)),
 
-  "watch:list": () => Object.entries(monitor.watched.profiles).map(([id, w]) => Object.assign({ id, count: w.snapshot ? Object.keys(w.snapshot).length : null }, { name: w.name, friends: w.friends, status: w.status, conn: w.conn, paused: w.paused, error: w.error || null, live: monitor.live[id] ? (monitor.live[id].type === 2 ? "jeu" : monitor.live[id].type >= 1 ? "en_ligne" : "hors_ligne") : null, place: monitor.live[id] ? monitor.live[id].place : "" })),
+  "watch:list": () => Object.entries(monitor.watched.profiles).map(([id, w]) => Object.assign({ id, count: w.snapshot ? Object.keys(w.snapshot).length : null }, { name: w.name, friends: w.friends, status: w.status, conn: w.conn, paused: w.paused, error: w.error || null, live: monitor.live[id] ? (monitor.live[id].type === 2 ? "jeu" : monitor.live[id].type === 3 ? "studio" : monitor.live[id].type >= 1 ? "en_ligne" : "hors_ligne") : null, place: monitor.live[id] ? monitor.live[id].place : "" })),
   "watch:add": ({ query, opts }) => monitor.addWatched(query, opts),
   "watch:update": ({ id, patch }) => monitor.updateWatched(String(id), patch || {}),
   "watch:remove": (id) => monitor.removeWatched(String(id)),
@@ -634,10 +685,11 @@ const api = {
     return { paths: r.filePaths, previews };
   },
   "custom:apply": ({ kind, paths }) => custom.apply(kind, paths),
+  "custom:reapply": (kind) => custom.reapply(kind),
   "custom:restore": (kind) => custom.restore(kind),
   "custom:forget": (kind) => custom.forget(kind),
 
-  "maint:cache": () => maintenance.cacheInfo(),
+  "maint:cache": (p) => maintenance.cacheInfo(!!(p && p.force)),
   "maint:clean": ({ ids }) => maintenance.clean(ids && ids.length ? ids : null),
   "maint:integrity": () => maintenance.integrity(custom),
   "maint:repair": () => maintenance.repair(custom, (u) => shell.openExternal(u), (p) => shell.openPath(p)),
@@ -752,7 +804,7 @@ async function boot() {
   monitor.on("history", (entries) => send("history", entries.length));
 
   monitor.start();
-  rpc.sync();
+  Promise.resolve(rpc.sync()).catch(() => {});
   maintenance.autoClean();
   if (settings.launcher.autoReapplyCustom) setTimeout(() => custom.reapplyIfNeeded(), 4000);
   setInterval(() => accounts.persistCookies().catch(() => {}), 30 * 60 * 1000).unref();

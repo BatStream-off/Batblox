@@ -4,15 +4,15 @@
 // Accueil : rangées de jeux (amis, proches des tiens, classements). « Tout voir » ouvre le classement complet,
 // la barre de recherche interroge tous les jeux Roblox. Le contenu se charge par pages (« Charger plus »).
 B.pages.discover = {
-  data: null, friends: [], view: "home", q: "", list: [], next: "", title: "", busy: false, tok: 0,
+  data: null, friends: [], view: "home", q: "", list: [], next: "", title: "", busy: false, tok: 0, icons: {}, iconReq: new Set(),
   async render(view) {
     const p = (this.root = h("div", { class: "page" }));
     view.append(p);
     const q = h("input", { type: "search", placeholder: "Rechercher un jeu…", "aria-label": "Rechercher un jeu", value: this.q, style: "max-width:300px",
-      oninput: (e) => { this.q = e.target.value; clearTimeout(this.qt); this.qt = setTimeout(() => this.search(), 450); },
+      oninput: (e) => { this.q = e.target.value; clearTimeout(this.qt); this.qt = setTimeout(() => this.search(), 300); },
       onkeydown: (e) => { if (e.key === "Enter") { clearTimeout(this.qt); this.search(); } } });
     p.append(h("header", {}, h("div", {}, h("h1", {}, "Découvrir"), h("div", { class: "muted" }, "Tous les jeux Roblox : recherche, classements et suggestions.")),
-      h("div", { class: "actions" }, q, h("button", { class: "btn", id: "d-ref", onclick: () => this.loadHome(true) }, "🔄 Actualiser"))));
+      h("div", { class: "actions inline" }, q, h("button", { class: "btn", id: "d-ref", onclick: () => this.loadHome(true) }, "🔄 Actualiser"))));
     p.append(h("div", { id: "d-chips", class: "chips", style: "margin-bottom:14px" }), h("div", { id: "d-body" }));
     if (this.view === "home" || !this.data) { this.view = "home"; await this.loadHome(false); } else { this.chips(); this.draw(); }
   },
@@ -72,8 +72,9 @@ B.pages.discover = {
   },
   tile(g) {
     const isFav = (B.S.settings.launcher.favorites || []).some((f) => f.placeId === g.pid);
-    const cover = h("div", { class: "tile-cover" }, (g.name.trim()[0] || "?").toUpperCase());
-    if (g.icon) { const img = h("img", { src: g.icon, alt: "" }); img.onload = () => { B.clear(cover); cover.append(img); }; }
+    const cover = h("div", { class: "tile-cover", "data-pid": g.pid }, B.initial(g.name));
+    const known = g.icon || this.icons[g.pid];
+    if (known) { const img = h("img", { src: known, alt: "", decoding: "async" }); img.onload = () => { B.clear(cover); cover.append(img); cover.classList.add("img"); }; }
     const meta = [g.players ? "👥 " + (g.players >= 10000 ? Math.round(g.players / 1000) + " k" : B.num(g.players)) : null, g.likes != null ? "👍 " + g.likes + " %" : null].filter(Boolean).join(" · ");
     const star = h("button", { class: "btn sm", title: isFav ? "Déjà dans les favoris" : "Ajouter aux favoris", "aria-label": "Ajouter aux favoris", disabled: isFav,
       onclick: async () => { const cur = (B.S.settings.launcher.favorites || []).filter((f) => f.placeId !== g.pid).concat({ placeId: g.pid, name: g.name }); await B.set({ launcher: { favorites: cur } }); star.disabled = true; star.textContent = "⭐"; B.toast("« " + g.name + " » ajouté aux favoris.", "ok"); } }, isFav ? "⭐" : "☆");
@@ -90,6 +91,28 @@ B.pages.discover = {
     else if (!this.err) card.append(h("div", { class: "empty" }, "Aucun jeu trouvé."));
     if (this.list.length && (this.next || this.busy)) card.append(h("div", { class: "row", style: "justify-content:center;margin-top:14px" }, h("button", { class: "btn", disabled: this.busy, onclick: () => this.more() }, this.busy ? "Chargement…" : "Charger plus")));
     body.append(card);
+    this.loadIcons();
+  },
+  // Les jeux s'affichent tout de suite avec une initiale ; les icônes arrivent ensuite (jamais bloquant, lots de 100, cache côté application).
+  loadIcons() {
+    const body = B.$("#d-body"); if (!body) return;
+    const els = [...body.querySelectorAll(".tile-cover[data-pid]:not(.img)")];
+    const byPid = new Map();
+    for (const el of els) { const pid = el.dataset.pid; if (!byPid.has(pid)) byPid.set(pid, []); byPid.get(pid).push(el); }
+    const need = [...byPid.keys()].filter((pid) => !this.icons[pid] && !this.iconReq.has(pid));
+    const apply = (pid) => {
+      const url = this.icons[pid]; if (!url) return;
+      for (const el of document.querySelectorAll(`#d-body .tile-cover[data-pid="${CSS.escape(pid)}"]:not(.img)`)) { const img = h("img", { src: url, alt: "", decoding: "async" }); img.onload = () => { if (!el.isConnected) return; B.clear(el); el.append(img); el.classList.add("img"); }; }
+    };
+    for (const pid of byPid.keys()) if (this.icons[pid]) apply(pid);
+    for (let i = 0; i < need.length; i += 100) {
+      const chunk = need.slice(i, i + 100);
+      chunk.forEach((pid) => this.iconReq.add(pid));
+      B.call("gameicons", chunk).then((map) => {
+        Object.assign(this.icons, map || {});
+        for (const pid of Object.keys(map || {})) apply(pid);
+      }).catch(() => {}).finally(() => chunk.forEach((pid) => this.iconReq.delete(pid)));
+    }
   },
   drawHome(body) {
     if (!this.data) return;
@@ -104,7 +127,7 @@ B.pages.discover = {
       const list = h("div", { class: "rail" });
       const covers = {};
       for (const g of fr) {
-        const cover = h("div", { class: "tile-cover" }, (g.name.trim()[0] || "?").toUpperCase());
+        const cover = h("div", { class: "tile-cover" }, B.initial(g.name));
         if (g.pid) (covers[g.pid] = covers[g.pid] || []).push(cover);
         const joinable = g.friends.find((f) => f.canJoin);
         list.append(h("div", { class: "tile" }, cover,
@@ -125,5 +148,6 @@ B.pages.discover = {
       h("div", { class: "row" }, h("h2", { class: "grow" }, s.title), s.token ? h("button", { class: "btn sm ghost", onclick: () => this.openSort(s) }, "Tout voir →") : null),
       h("div", { class: "rail" }, s.games.slice(0, 12).map((g) => this.tile(g)))));
     body.append(h("div", { class: "muted small" }, "Suggestions fournies par Roblox · accueil mis en cache 10 min · " + B.ago(this.data.ts)));
+    this.loadIcons();
   }
 };
