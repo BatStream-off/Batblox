@@ -51,6 +51,7 @@ function sanitize(next) {
   s.notifications.ntfy.server = /^https:\/\//i.test(s.notifications.ntfy.server) ? s.notifications.ntfy.server : "https://ntfy.sh";
   s.maintenance.autoCleanMb = Math.min(20000, Math.max(50, Math.round(Number(s.maintenance.autoCleanMb) || 500)));
   s.monitoring.favorites = [...new Set((s.monitoring.favorites || []).map(String).filter((x) => /^\d+$/.test(x)))];
+  s.monitoring.gameOnly = [...new Set((s.monitoring.gameOnly || []).map(String).filter((x) => /^\d+$/.test(x)))];
   s.network.publicProxy = PROXY_DOMAIN_RE.test(String(s.network.publicProxy || "").trim()) ? String(s.network.publicProxy).trim().toLowerCase() : "";
   s.updates.checkOnStart = s.updates.checkOnStart !== false;
   if (!CLIENT_IDS.includes(s.launcher.client)) s.launcher.client = "auto";

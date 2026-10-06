@@ -43,7 +43,7 @@ B.pages.roblox = {
       try { await B.updateRoblox(u.running, () => this.drawUpdate(false), () => { this.updating = true; this.drawUpdate(false); }); }
       finally { this.updating = false; this.refresh(); }
     };
-    box.append(h("h3", {}, "Mise à jour"), h("div", { class: "row" }, h("b", {}, state), h("span", { class: "grow" }),
+    box.append(h("h3", {}, "Mise à jour"), h("div", { class: "row wrap rb-upd" }, h("b", { class: "rb-state" }, state),
       h("button", { class: "btn sm ghost", disabled: busy, onclick: () => this.drawUpdate(true) }, "Revérifier"),
       h("button", { class: "btn" + (u.upToDate === false ? " pri" : ""), disabled: busy || u.upToDate === true || !u.latest, title: u.upToDate === true ? "Déjà à jour" : "", onclick: go }, "Mettre à jour Roblox")),
       h("div", { class: "muted small", style: "margin-top:6px" }, u.latest ? `Installée : ${fmt(u.installed && u.installed.guid) || "?"} · Dernière version : ${fmt(u.latest.guid)}${u.latest.version ? " (" + u.latest.version + ")" : ""}` : (u.error || "")),

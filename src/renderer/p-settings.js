@@ -102,7 +102,7 @@ B.pages.settings = {
       B.row("Abonnés et abonnements", null, sw(["monitoring", "follows"], "Abonnés")),
       B.row("Demandes d'ami reçues", null, sw(["monitoring", "requests"], "Demandes")),
       B.row("Statut en ligne", "Connexions, déconnexions et jeux lancés.", sw(["monitoring", "presence"], "Statut")),
-      B.row("Amis dont on suit le statut", "« Tous » surveille le statut de tout le monde ; « Sélectionnés » seulement les personnes suivies (🔔 dans la page Amis, ou Profils suivis).", h("select", { "aria-label": "Amis suivis", onchange: (e) => setv(["monitoring", "presenceMode"], e.target.value) },
+      B.row("Amis dont on suit le statut", "« Tous » surveille le statut de tout le monde ; « Sélectionnés » seulement les personnes suivies (bouton « Suivi » dans la page Amis, ou Profils suivis).", h("select", { "aria-label": "Amis suivis", onchange: (e) => setv(["monitoring", "presenceMode"], e.target.value) },
         [["favorites", "Amis sélectionnés"], ["all", "Tous mes amis"]].map(([v, l]) => h("option", { value: v, selected: M.presenceMode === v }, l)))),
       B.row("Afficher mon propre statut", "Visible dans l'accueil, jamais de notification.", sw(["monitoring", "showMyStatus"], "Mon statut")),
       B.row("Délai d'inactivité (jours)", "Au-delà, Batblox propose d'arrêter le suivi d'un ami absent. Rien n'est retiré sans ton accord.", h("input", { type: "number", min: 1, max: 365, value: M.idleDays, style: "width:90px", "aria-label": "Jours", onchange: (e) => setv(["monitoring", "idleDays"], Number(e.target.value)) })),
@@ -127,8 +127,8 @@ B.pages.settings = {
   },
   updateCard() {
     const card = h("div", { class: "card" }, h("h2", {}, "Mises à jour"));
-    const info = h("div", { class: "muted small", role: "status" });
-    const btn = h("button", { class: "btn pri" }, "Vérifier les mises à jour");
+    const info = h("div", { class: "muted small upd-info", role: "status" });
+    const btn = h("button", { class: "btn pri upd-btn" }, "Vérifier les mises à jour");
     const draw = (st) => {
       const L = st && st.latest;
       btn.disabled = !!(st && st.busy);
@@ -165,7 +165,7 @@ B.pages.settings = {
     card.append(
       B.row("Version installée", "Les nouvelles versions sont publiées sur GitHub (BatStream-off/Batblox). Batblox les télécharge et les installe pour toi.", h("span", { class: "muted" }, "v" + (B.S.version || ""))),
       B.row("Vérifier au démarrage", "Une vérification discrète quelques secondes après l'ouverture ; rien n'est installé sans ton accord.", sw(["updates", "checkOnStart"], "Vérifier au démarrage")),
-      h("div", { class: "field-row" }, info, btn));
+      h("div", { class: "upd-row" }, info, btn));
     B.call("update:state").then((st) => { cur = st; draw(cur); }).catch(() => {});
     return card;
   },

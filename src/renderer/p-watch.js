@@ -19,7 +19,7 @@ B.pages.watch = {
     root.append(B.head("Profils suivis", "Surveille la liste d'amis et l'activité de n'importe quel joueur.",
       [h("button", { class: "btn", onclick: async () => { await B.run(() => B.call("monitor:checkNow")); this.draw(); } }, "🔄 Vérifier maintenant")], this.embedded));
     root.append(h("div", { class: "card" }, h("div", { class: "row" }, input, h("button", { class: "btn pri", onclick: add }, "➕ Ajouter"))));
-    if (!list.length) { root.append(h("div", { class: "card empty" }, "Aucun profil suivi. Ajoute un joueur avec son pseudo ou son identifiant, ou active 🔔 sur un ami.")); return; }
+    if (!list.length) { root.append(h("div", { class: "card empty" }, "Aucun profil suivi. Ajoute un joueur avec son pseudo ou son identifiant, ou clique sur « Suivre » sur un ami.")); return; }
     for (const w of list) {
       const opt = (k, label) => h("label", { class: "row small", style: "gap:6px" }, B.switch(w[k], async (v) => { await B.run(() => B.call("watch:update", { id: w.id, patch: { [k]: v } })); w[k] = v; }, label), label);
       root.append(h("div", { class: "card" }, h("div", { class: "row" }, B.avatar(w.id, w.name, "lg"),

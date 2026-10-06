@@ -83,7 +83,7 @@ B.pages.home = {
     const mon = B.S.settings.monitoring;
 
     if (mon.presenceMode !== "all") {
-      fBox.append(h("div", { class: "notice" }, "Seuls les amis marqués 🔔 sont suivis : les autres apparaissent sans statut. ",
+      fBox.append(h("div", { class: "notice" }, "Seuls les amis marqués « Suivi » sont suivis : les autres apparaissent sans statut. ",
         h("button", { class: "btn sm pri", onclick: async () => { await B.set({ monitoring: { presenceMode: "all" } }); await B.run(() => B.call("monitor:checkNow")); this.fillFriends(); } }, "Suivre tous mes amis")));
     }
 

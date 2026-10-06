@@ -1132,3 +1132,33 @@ nav { scrollbar-gutter: auto; }
 .cache-opts .field-row input[type=number] { width: 104px; text-align: right; }
 @media (max-width: 560px) { .cache-item { grid-template-columns: 18px minmax(0, 1fr) auto; } }
 
+/* ============ Cartes : plus aucun bouton ne sort du cadre ============
+   Cause du bug : « .field-row > :not(.lbl) { flex: none } » et « .item .btn { flex: none } » interdisaient tout rétrécissement,
+   et « .btn { white-space: nowrap } » empêchait le retour à la ligne. Les lignes peuvent maintenant passer sur deux lignes. */
+.card { min-width: 0; max-width: 100%; }
+.item { flex-wrap: wrap; row-gap: 8px; min-width: 0; max-width: 100%; }
+.item .main { flex: 1 1 150px; min-width: 0; }
+.item-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 6px; margin-left: auto; min-width: 0; max-width: 100%; }
+.item-actions .btn { flex: 0 0 auto; }
+@media (max-width: 760px) {
+  /* Écran étroit (fenêtre réduite ou affichage Windows agrandi) : les actions passent sous le nom, alignées à gauche. */
+  .item-actions { flex: 1 1 100%; justify-content: flex-start; margin-left: 0; }
+}
+/* Carte « Mises à jour » : texte à gauche (qui rétrécit et passe à la ligne), bouton à droite ; en dessous de 560 px il passe dessous, pleine largeur. */
+.upd-row { display: flex; align-items: flex-start; flex-wrap: wrap; gap: 12px 20px; padding: 12px 0 2px; border-top: 1px solid var(--line); min-width: 0; }
+.upd-info { flex: 1 1 260px; min-width: 0; max-height: 15em; overflow-y: auto; overflow-wrap: anywhere; word-break: break-word; }
+.upd-btn { flex: 0 1 auto; max-width: 100%; min-width: 0; white-space: normal; text-align: center; line-height: 1.25; }
+@media (max-width: 560px) { .upd-btn { flex: 1 1 100%; } }
+
+/* ============ Protection du contenu (sélection, glisser) ============
+   Les champs de saisie restent utilisables normalement ; l'attribut data-allow-copy rouvre la sélection sur un bloc précis. */
+html, body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+input, textarea, [contenteditable=""], [contenteditable="true"], [data-allow-copy], [data-allow-copy] * { -webkit-user-select: text; user-select: text; }
+img, svg, a, button { -webkit-user-drag: none; user-drag: none; }
+/* Carte « Mise à jour » de Roblox : l'état prend la place disponible et passe à la ligne ; les boutons se calent à droite, ou dessous sur écran étroit. */
+.rb-upd { gap: 8px 10px; }
+.rb-state { flex: 1 1 220px; min-width: 0; overflow-wrap: anywhere; }
+.rb-upd .btn { flex: 0 0 auto; max-width: 100%; }
+/* Bandeaux : le texte et le bouton passent sur deux lignes plutôt que de déborder. */
+.notice { flex-wrap: wrap; row-gap: 8px; min-width: 0; overflow-wrap: anywhere; }
+

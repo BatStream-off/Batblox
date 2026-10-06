@@ -226,6 +226,49 @@ test("suivi unique : les anciens 🔔 deviennent des profils suivis complets, le
   assert.ok(monitor.stats.pstats.d["1"], "présence collectée");
 });
 
+test("🔕 (notifications d'une personne) et « Suivi » sont deux réglages indépendants", async () => {
+  const { monitor, w, sent } = makeApp({ monitoring: { presenceMode: "all", gameOnly: ["1"] } });
+  await monitor.checkAll();
+  let v = Object.fromEntries(monitor.friendsView().map((f) => [f.id, f]));
+  assert.equal(v["1"].gameOnly, true, "🔕 actif pour 1");
+  assert.equal(v["1"].tracked, false, "…sans le suivre");
+  assert.equal(v["2"].gameOnly, false);
+  await monitor.addWatched("2", { friends: true, status: true, conn: true });
+  v = Object.fromEntries(monitor.friendsView().map((f) => [f.id, f]));
+  assert.equal(v["2"].tracked, true, "Suivi actif pour 2");
+  assert.equal(v["2"].gameOnly, false, "…sans toucher aux notifications");
+  assert.equal(v["1"].gameOnly, true, "le suivi de 2 ne change pas 🔕 de 1");
+  monitor.removeWatched("2");
+  v = Object.fromEntries(monitor.friendsView().map((f) => [f.id, f]));
+  assert.equal(v["2"].tracked, false);
+  // 🔕 : connexion / déconnexion de 1 non notifiées, mais celles de 3 oui
+  w.friends = { 1: "Alice", 2: "Bob", 3: "Carl" };
+  w.presence = { 1: { type: 1 }, 3: { type: 1 } };
+  monitor.lastChecked = {}; sent.length = 0;
+  await monitor.checkAll();
+  const online = sent.filter((e) => e.type === "online").map((e) => String(e.friendId));
+  assert.ok(!online.includes("1"), "connexion de 1 silencieuse (🔕)");
+});
+
+test("protection du contenu : champs de saisie épargnés, reste bloqué", () => {
+  const { isEditable, isClipboardKey } = require("../src/renderer/guard.js");
+  const el = (tag, extra) => { const o = Object.assign({ tagName: tag, nodeType: 1, type: "text", getAttribute: () => null, isContentEditable: false }, extra || {}); o.closest = (sel) => (sel.split(",").some((x) => { x = x.trim(); return x === tag.toLowerCase() || (x === "[data-allow-copy]" && o.allow) || (x === "[contenteditable]" && o.ce); }) ? o : null); return o; };
+  assert.equal(isEditable(el("INPUT")), true);
+  assert.equal(isEditable(el("INPUT", { type: "search" })), true);
+  assert.equal(isEditable(el("INPUT", { type: "password" })), true);
+  assert.equal(isEditable(el("INPUT", { type: "checkbox" })), false, "case à cocher : pas un champ de saisie");
+  assert.equal(isEditable(el("TEXTAREA")), true);
+  assert.equal(isEditable(el("DIV")), false);
+  assert.equal(isEditable(el("DIV", { allow: true })), true, "data-allow-copy");
+  assert.equal(isEditable(null), false);
+  assert.equal(isClipboardKey({ key: "c", ctrlKey: true }), true);
+  assert.equal(isClipboardKey({ key: "V", ctrlKey: true }), true);
+  assert.equal(isClipboardKey({ key: "a", metaKey: true }), true);
+  assert.equal(isClipboardKey({ key: "Insert", shiftKey: true }), true);
+  assert.equal(isClipboardKey({ key: "c" }), false, "la lettre seule reste libre");
+  assert.equal(isClipboardKey({ key: "F12" }), false, "F12 (console) non bloqué");
+});
+
 test("monitor : les profils suivis sont étalés (3 par passage, un toutes les 4 min) pour éviter les 429", async () => {
   const { monitor, w } = makeApp({ monitoring: { friends: false, presence: false, requests: false, follows: false } });
   for (const id of ["11", "12", "13", "14", "15"]) await monitor.addWatched(id, { friends: true, status: false, conn: false });

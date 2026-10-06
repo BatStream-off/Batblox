@@ -468,14 +468,14 @@ class Monitor extends EventEmitter {
     if (!acc) return [];
     const st = this.accState(acc.id);
     const S = this.getSettings().monitoring;
-    const fav = new Set((S.favorites || []).map(String));
+    const gameOnly = new Set((S.gameOnly || []).map(String));
     return Object.entries(st.friends || {}).map(([id, name]) => {
       const p = (st.presence || {})[id];
       const l = this.live[id];
       let status = "inconnu";
       if (l) status = l.type === 2 ? "jeu" : l.type === 3 ? "studio" : l.type === 1 ? "en_ligne" : "hors_ligne";
       else if (p) status = p.c === "game" ? "jeu" : p.c === "on" ? "en_ligne" : "hors_ligne";
-      return { id, name, tracked: !!this.watched.profiles[id], status, place: l ? l.place : (p && p.place) || "", pid: l ? String(l.pid || "") : String((p && p.pid) || ""), lastOn: p && p.on || null, canJoin: !!(l && l.type === 2) };
+      return { id, name, tracked: !!this.watched.profiles[id], gameOnly: gameOnly.has(String(id)), status, place: l ? l.place : (p && p.place) || "", pid: l ? String(l.pid || "") : String((p && p.pid) || ""), lastOn: p && p.on || null, canJoin: !!(l && l.type === 2) };
     });
   }
 
