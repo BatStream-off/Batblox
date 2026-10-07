@@ -1,7 +1,7 @@
 {
   "name": "batblox",
   "productName": "Batblox",
-  "version": "1.5.3",
+  "version": "1.5.6",
   "description": "Batblox : centre de contrôle Roblox pour Windows (launcher, amis, profils suivis, historique, statistiques, notifications).",
   "main": "src/main/main.js",
   "author": "Batblox",

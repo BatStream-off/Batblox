@@ -85,6 +85,7 @@ B.applyAppearance = () => {
   r.dataset.potato = a.potato ? "1" : "0";
   r.dataset.anim = a.animations ? "1" : "0";
   r.dataset.shadow = a.shadows ? "1" : "0";
+  r.dataset.lightning = a.lightning === false ? "0" : "1";
   r.dataset.fx = a.effects && !a.potato ? "1" : "0";
   B.sound.enabled = a.clickSound !== false;
   B.sound.volume = (a.clickVolume == null ? 40 : a.clickVolume) / 100;

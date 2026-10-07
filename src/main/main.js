@@ -43,6 +43,7 @@ function sanitize(next) {
   s.monitoring.idleDays = Math.min(365, Math.max(1, Math.round(Number(s.monitoring.idleDays) || 30)));
   if (!["auto", "light", "dark", "bat", "joker", "batman", "inde"].includes(s.appearance.theme)) s.appearance.theme = "auto";
   s.appearance.clickSound = s.appearance.clickSound !== false;
+  s.appearance.lightning = s.appearance.lightning !== false;
   s.appearance.clickVolume = Math.min(100, Math.max(0, Math.round(Number(s.appearance.clickVolume)))) || (Number(s.appearance.clickVolume) === 0 ? 0 : 40);
   if (!["favorites", "all"].includes(s.monitoring.presenceMode)) s.monitoring.presenceMode = "favorites";
   s.notifications.discord.url = String(s.notifications.discord.url || "").trim().replace(/[?#].*$/, "").replace(/\/+$/, "");

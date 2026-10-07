@@ -4,7 +4,7 @@ const SCHEMA_VERSION = 1;
 
 const DEFAULT_SETTINGS = {
   schemaVersion: SCHEMA_VERSION,
-  appearance: { theme: "auto", potato: false, animations: true, shadows: true, effects: true, clickSound: true, clickVolume: 40 },
+  appearance: { theme: "auto", potato: false, animations: true, shadows: true, effects: true, lightning: true, clickSound: true, clickVolume: 40 },
   monitoring: {
     enabled: true,
     intervalSec: 60,

@@ -40,6 +40,18 @@ Chaque fichier contient `schemaVersion` pour permettre les futures migrations.
 | Bouton « Suivre » sur roblox.com | N'existe plus (il dépendait du navigateur) : on ajoute un profil par pseudo ou identifiant dans **Profils suivis**. |
 | Messages (chat Roblox) | Page **Messages** (menu de gauche) : conversations du compte actif, privées et de groupe, avec lecture de l'historique et réponse directe (Entrée pour envoyer, Maj+Entrée pour un retour à la ligne). Pastille de non-lus dans le menu ; rafraîchissement automatique tant que la page est ouverte (jamais fenêtre cachée). Roblox a supprimé en 2024 la boîte de réception « messages privés » entre joueurs : seul le chat est branché. |
 
+## Nouveautés de la version 1.5.6
+**Thème Batman**
+- Éclairs refaits : de vrais éclairs d'orage (tracé irrégulier et ramifié, unique à chaque fois, cœur blanc et halo bleuté) frappent au loin derrière les toits de Gotham. Chaque éclair éclaire brièvement le ciel, les nuages, la pluie et les toits, avec parfois un second flash quelques instants plus tard. Ils restent derrière l'interface, peuvent être activés ou désactivés dans **Réglages › Apparence › Éclairs** (thème Batman uniquement), suivent l'interrupteur **Effets** et disparaissent en mode économe, si les animations sont coupées ou si le système demande moins de mouvement.
+
+- Ville de Gotham entièrement refaite (fond du thème Batman) : skyline dense en trois plans (lointain bleuté et flou, intermédiaire, proche très sombre) séparés par de la brume, avec gratte-ciels Art déco, immeubles résidentiels, toits industriels, antennes, cheminées, réservoirs, pylône radio, grue, gazomètre, cathédrale gothique, tour de l'horloge et grande tour monolithique. Fenêtres chaudes irrégulières d'intensités variées (certaines éteintes), enseignes très discrètes, feux rouges d'antenne, reflets de lumière dans la pluie. Même position, même hauteur, même rôle de décor : l'interface, la pluie et les autres effets sont inchangés. Les éclairs éclairent aussi les toits grâce à une silhouette dédiée (`gotham-skyline-lit.svg`).
+
+## Nouveautés de la version 1.5.4
+**Thème Batman**
+- La carte « bat-signal » de la barre latérale (au-dessus de Réglages) est retirée en grande fenêtre ; Réglages reste en bas du menu.
+- Le grand bat-signal du fond est 20 % moins lumineux.
+- La tache lumineuse du bat-signal (celle qui entoure le logo) est encore 28 % moins lumineuse (−20 % puis −10 %).
+
 ## Nouveautés de la version 1.5.3 (corrections)
 **Bugs corrigés**
 - Le mot « null » ne s'affiche plus (page Roblox, statistiques d'une personne). Un test automatique surveille ce piège.

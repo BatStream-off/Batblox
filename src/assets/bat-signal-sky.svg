@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 1000" preserveAspectRatio="none">
+<defs>
+<radialGradient id="halo" gradientUnits="userSpaceOnUse" cx="0" cy="0" r="1" gradientTransform="translate(330 205) scale(260 176)"><stop offset="0" stop-color="#B8CBF2" stop-opacity=".21"/><stop offset=".38" stop-color="#A9BFEA" stop-opacity=".11"/><stop offset=".72" stop-color="#9DB3E0" stop-opacity=".05"/><stop offset="1" stop-color="#9DB3E0" stop-opacity="0"/></radialGradient>
+<radialGradient id="spot" gradientUnits="userSpaceOnUse" cx="0" cy="0" r="1" gradientTransform="translate(330 205) scale(124 96)"><stop offset="0" stop-color="#FFFFFF" stop-opacity=".58"/><stop offset=".5" stop-color="#F3F8FF" stop-opacity=".54"/><stop offset=".72" stop-color="#DDE8FF" stop-opacity=".35"/><stop offset=".88" stop-color="#C6D7F6" stop-opacity=".11"/><stop offset="1" stop-color="#C6D7F6" stop-opacity="0"/></radialGradient>
+</defs>
+<ellipse cx="330" cy="205" rx="260" ry="176" fill="url(#halo)"/>
+<ellipse cx="330" cy="205" rx="124" ry="96" fill="url(#spot)"/>
+</svg>

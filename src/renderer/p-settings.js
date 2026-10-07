@@ -94,7 +94,8 @@ B.pages.settings = {
       B.row("Mode potato", "Aucun effet ni animation : pour les ordinateurs anciens. Tout fonctionne pareil.", sw(["appearance", "potato"], "Mode potato")),
       B.row("Animations", null, sw(["appearance", "animations"], "Animations")),
       B.row("Ombres", null, sw(["appearance", "shadows"], "Ombres")),
-      B.row("Effets", "Lueur des thèmes Batcave, Joker, Batman et Inde qui suit la souris.", sw(["appearance", "effects"], "Effets"))));
+      B.row("Effets", "Lueur des thèmes Batcave, Joker, Batman et Inde qui suit la souris.", sw(["appearance", "effects"], "Effets")),
+      B.row("Éclairs", "Active ou désactive les éclairs d'orage. Cette option ne concerne que le thème Batman : sur les autres thèmes, elle n'a aucun effet. Les éclairs nécessitent aussi que les Effets et les animations soient activés et que le mode potato soit coupé.", sw(["appearance", "lightning"], "Éclairs (thème Batman)"))));
     const snd = B.switch(A.clickSound !== false, (v) => { B.sound.enabled = v; setv(["appearance", "clickSound"], v); }, "Son des clics");
     snd.querySelector("input").dataset.soundPref = "1";
     p.append(h("div", { class: "card" }, h("h2", {}, "Son"),

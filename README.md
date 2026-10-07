@@ -5,7 +5,7 @@
 **Le centre de contrôle Roblox pour Windows.**
 Lanceur, amis, profils suivis, historique, statistiques et notifications dans une seule application, entièrement en français.
 
-![Version](https://img.shields.io/badge/version-1.5.3-2563F2)
+![Version](https://img.shields.io/badge/version-1.5.6-2563F2)
 ![Plateforme](https://img.shields.io/badge/plateforme-Windows-0078D4)
 ![Electron](https://img.shields.io/badge/Electron-33-47848F)
 

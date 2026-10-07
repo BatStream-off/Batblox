@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 1000" preserveAspectRatio="none">
+<defs>
+<linearGradient id="along" gradientUnits="userSpaceOnUse" x1="0" y1="190" x2="0" y2="1000"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".06" stop-color="#fff" stop-opacity=".6"/><stop offset=".69" stop-color="#fff" stop-opacity=".8"/><stop offset="1" stop-color="#fff" stop-opacity=".9"/></linearGradient>
+<mask id="m" maskUnits="userSpaceOnUse" x="0" y="0" width="520" height="1000"><rect width="520" height="1000" fill="url(#along)"/></mask>
+<filter id="soft" filterUnits="userSpaceOnUse" x="-100" y="100" width="720" height="1100"><feGaussianBlur stdDeviation="9"/></filter>
+<filter id="mist" filterUnits="userSpaceOnUse" x="-100" y="300" width="720" height="800"><feGaussianBlur stdDeviation="7"/></filter>
+<filter id="base" filterUnits="userSpaceOnUse" x="-100" y="800" width="720" height="360"><feGaussianBlur stdDeviation="16"/></filter>
+</defs>
+<g mask="url(#m)"><g filter="url(#soft)"><path d="M208.2 1071.5L239.4 177.1L424.8 203.2Z" fill="#BCD0F4" fill-opacity="0.051"/><path d="M208.2 1071.5L256.1 179.5L408.1 200.8Z" fill="#C6D8F7" fill-opacity="0.058"/><path d="M208.2 1071.5L270.9 181.6L393.2 198.7Z" fill="#D2E1FA" fill-opacity="0.065"/><path d="M208.2 1071.5L285.8 183.6L378.4 196.7Z" fill="#DDE9FD" fill-opacity="0.071"/><path d="M208.2 1071.5L298.7 185.5L365.4 194.8Z" fill="#E6EFFF" fill-opacity="0.078"/><path d="M208.2 1071.5L309.8 187.0L354.3 193.3Z" fill="#F0F6FF" fill-opacity="0.085"/><path d="M208.2 1071.5L321.0 188.6L343.2 191.7Z" fill="#FAFCFF" fill-opacity="0.095"/></g><g filter="url(#mist)" fill="#D6E4FF"><ellipse cx="296" cy="402" rx="118" ry="15" fill-opacity="0.07" transform="rotate(8.0 296 402)"/><ellipse cx="301" cy="470" rx="84" ry="9" fill-opacity="0.05" transform="rotate(8.0 301 470)"/><ellipse cx="274" cy="585" rx="100" ry="12" fill-opacity="0.07" transform="rotate(8.0 274 585)"/><ellipse cx="264" cy="702" rx="74" ry="9" fill-opacity="0.06" transform="rotate(8.0 264 702)"/></g></g>
+<ellipse cx="217" cy="1010" rx="150" ry="44" fill="#9DB7E6" fill-opacity=".15" filter="url(#base)"/>
+</svg>

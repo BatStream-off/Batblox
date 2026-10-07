@@ -142,7 +142,9 @@ B.pages.messages = {
     B.clear(box);
     const c = this.conv();
     if (!c) { box.append(h("div", { class: "chat-empty" }, h("div", { class: "empty" }, this.convs.length ? "Choisis une conversation pour lire et répondre." : "Tes conversations apparaîtront ici."))); return; }
-    this.ta = h("textarea", { rows: 2, maxlength: 500, placeholder: "Écris ta réponse… (Entrée pour envoyer, Maj+Entrée pour un retour à la ligne)", "aria-label": "Ta réponse", value: this.drafts[c.id] || "",
+    // placeholder dynamique : nom du contact (tronqué s'il est long, ex. groupes), raccourcis clavier en infobulle
+    const dest = String(c.title || "").trim(), destShort = dest.length > 32 ? dest.slice(0, 31) + "…" : dest;
+    this.ta = h("textarea", { rows: 2, maxlength: 500, placeholder: destShort ? "Écris un message à " + destShort + "…" : "Écris un message…", title: "Entrée pour envoyer, Maj+Entrée pour un retour à la ligne", "aria-label": dest ? "Message à " + dest : "Ton message", value: this.drafts[c.id] || "",
       onkeydown: (e) => { if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); this.send(); } } });
     this.btn = h("button", { class: "btn pri", onclick: () => this.send() }, "Envoyer");
     box.append(
