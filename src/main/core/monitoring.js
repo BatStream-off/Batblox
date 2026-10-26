@@ -102,6 +102,7 @@ class Monitor extends EventEmitter {
     this.stats = storage.get("stats", () => ({ series: {}, counts: {}, pstats: { t: 0, d: {} } }));
     if (!this.stats.pstats) this.stats.pstats = { t: 0, d: {} };
     this.lastChecked = {};
+    this.extraPresenceIds = () => [];
     this.accounts.on("changed", () => { this.live = {}; this.error = null; this.emit("update"); this.kick(1500); });
   }
 
@@ -296,6 +297,8 @@ class Monitor extends EventEmitter {
     let ids = S.presence ? Object.keys(friends) : [];
     if (S.presence && S.presenceMode !== "all") { const fav = new Set((S.favorites || []).map(String)); ids = ids.filter((id) => fav.has(id)); }
     for (const [id, w] of Object.entries(this.watched.profiles)) if (w.status && !w.paused && !ids.includes(id)) ids.push(id);
+    // Amis avec une alerte « prévenir à la prochaine connexion » : leur statut est lu même s'ils ne sont pas « Suivis ».
+    for (const id of this.extraPresenceIds()) if (friends[id] && !ids.includes(id)) ids.push(id);
     return ids;
   }
 

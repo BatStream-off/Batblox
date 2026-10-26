@@ -37,7 +37,10 @@ html.intro-fade #bat-signal *,html.intro-fade::before,html.intro-fade::after,htm
        (double-clic : agrandir). Elle remplace l'ancienne barre de titre séparée + en-tête, qui affichaient deux fois « Batblox ». -->
   <header id="titlebar" class="top" aria-label="Barre de titre">
     <div class="brand"><img src="../assets/logo-header.png" alt=""><span>BATBLOX</span></div>
+    <button type="button" id="search-btn" class="search-btn" title="Rechercher (Ctrl+K)" aria-label="Rechercher un ami, un jeu, une page ou un réglage"><span class="sb-txt">Rechercher…</span><kbd>Ctrl K</kbd></button>
     <div class="grow"></div>
+    <button type="button" id="streamer-btn" class="tb-icon" aria-pressed="false" title="Mode streamer (Ctrl+Maj+S) : masque pseudos, avatars et identifiants"></button>
+    <button type="button" id="mini-btn" class="tb-icon" title="Mini-fenêtre « Amis en ligne » (Ctrl+Maj+M)" aria-label="Ouvrir la mini-fenêtre Amis en ligne"></button>
     <div id="status-pill" class="pill" title="État du monitoring"></div>
     <div id="acc-switch"></div>
     <div class="tb-ctl" role="toolbar" aria-label="Fenêtre">
@@ -56,6 +59,9 @@ html.intro-fade #bat-signal *,html.intro-fade::before,html.intro-fade::after,htm
 <div id="glow"></div>
 <script src="guard.js"></script>
 <script src="lib.js"></script>
+<script src="i18n-core.js"></script>
+<script src="i18n-en.js"></script>
+<script src="i18n.js"></script>
 <script src="sound.js"></script>
 <script src="titlebar.js"></script>
 <script src="shell.js"></script>
@@ -72,6 +78,12 @@ html.intro-fade #bat-signal *,html.intro-fade::before,html.intro-fade::after,htm
 <script src="p-activity.js"></script>
 <script src="p-messages.js"></script>
 <script src="p-playtime.js"></script>
+<script src="people.js"></script>
+<script src="search.js"></script>
+<script src="p-mini.js"></script>
+<script src="whatsnew.js"></script>
+<script src="support.js"></script>
+<script src="p-recap.js"></script>
 <script src="storm.js"></script>
 <script src="boot.js"></script>
 </body>

@@ -43,7 +43,7 @@ B.pages.stats = {
     if (d.weekly.length) {
       const best = [...d.weekly].sort((a, b) => b.added - a.added)[0], worst = [...d.weekly].sort((a, b) => b.removed - a.removed)[0];
       root.append(h("div", { class: "card" }, h("h2", {}, "Ajouts et retraits par semaine"), B.barChart(d.weekly), B.weeklySummary(d.weekly),
-        h("div", { class: "muted small" }, `Meilleure semaine : ${best.added} ajout(s) (semaine du ${new Date(best.w).toLocaleDateString("fr-FR")}) · Pire semaine : ${worst.removed} retrait(s) (semaine du ${new Date(worst.w).toLocaleDateString("fr-FR")})`)));
+        h("div", { class: "muted small" }, `Meilleure semaine : ${best.added} ajout(s) (semaine du ${new Date(best.w).toLocaleDateString(B.loc())}) · Pire semaine : ${worst.removed} retrait(s) (semaine du ${new Date(worst.w).toLocaleDateString(B.loc())})`)));
     } else root.append(h("div", { class: "card" }, h("h2", {}, "Ajouts et retraits par semaine"), h("div", { class: "empty" }, "Aucun ajout ni retrait sur cette période.")));
     await this.presence(root);
   },

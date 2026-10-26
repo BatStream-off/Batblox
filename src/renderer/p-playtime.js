@@ -8,7 +8,7 @@ const ptDur = (sec) => {
   const h = Math.floor(sec / 3600), m = Math.round((sec % 3600) / 60);
   return h ? h + " h " + String(m).padStart(2, "0") : m + " min";
 };
-const ptDay = (k, short) => { const [y, mo, d] = k.split("-").map(Number); const dt = new Date(y, mo - 1, d); return short ? B.DAYS[(dt.getDay() + 6) % 7] : dt.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" }); };
+const ptDay = (k, short) => { const [y, mo, d] = k.split("-").map(Number); const dt = new Date(y, mo - 1, d); return short ? B.DAYS[(dt.getDay() + 6) % 7] : dt.toLocaleDateString(B.loc(), { weekday: "long", day: "numeric", month: "long" }); };
 
 B.pages.playtime = {
   render(view, opts) {

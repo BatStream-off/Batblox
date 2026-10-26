@@ -116,6 +116,24 @@ class RobloxLauncher {
     });
   }
 
+  // Lecture mise en cache pour l'affichage (accueil, page Roblox, vérification de version) : « tasklist » coûte 100 à 400 ms sous Windows
+  // et l'accueil le demandait à chaque vérification. Les boucles d'attente (lancement, fermeture) gardent processes(), toujours à jour.
+  async processesCached(maxAge = 2500) {
+    const c = this._procCache, now = Date.now();
+    if (c && now - c.ts < maxAge) return c.p;
+    if (this._procInflight) return this._procInflight;
+    this._procInflight = this.processes().then((list) => { this._procCache = { ts: Date.now(), p: list }; return list; }).finally(() => { this._procInflight = null; });
+    return this._procInflight;
+  }
+  installCached(maxAge = 15000) {
+    const c = this._instCache, now = Date.now();
+    if (c && now - c.ts < maxAge) return c.v;
+    const v = this.install(); this._instCache = { ts: now, v };
+    return v;
+  }
+  /** Oublie les lectures en cache (après un lancement, une mise à jour, une fermeture, une réparation). */
+  invalidate() { this._procCache = null; this._instCache = null; }
+
   async processes() {
     if (this.platform !== "win32") return [];
     const { out } = await this._run("tasklist", ["/FI", `IMAGENAME eq ${EXE}`, "/FO", "CSV", "/NH"]);
@@ -123,6 +141,7 @@ class RobloxLauncher {
   }
 
   async closeInstance(pid, force = false) {
+    this.invalidate();
     if (this.platform !== "win32" || !Number.isInteger(pid)) return false;
     const procs = await this.processes();
     if (!procs.some((p) => p.pid === pid)) return false; // on ne ferme que de vraies instances Roblox
@@ -131,6 +150,7 @@ class RobloxLauncher {
   }
 
   async closeAll(force = false) {
+    this.invalidate();
     const list = await this.processes();
     let n = 0;
     for (const p of list) if (await this.closeInstance(p.pid, force)) n++;
@@ -138,8 +158,8 @@ class RobloxLauncher {
   }
 
   async status() {
-    const inst = this.install();
-    const procs = await this.processes();
+    const inst = this.installCached();
+    const procs = await this.processesCached();
     const c = this.chosen();
     return { installed: !!inst, version: inst ? inst.version : null, instances: procs, windows: this.platform === "win32",
       clients: this.clients().map(({ id, name, found }) => ({ id, name, found })), client: (this.getSettings().launcher || {}).client || "auto", customExe: (this.getSettings().launcher || {}).customExe || "", chosenOk: c ? c.found : true };
@@ -215,6 +235,7 @@ class RobloxLauncher {
   }
 
   async launch({ placeId, jobId } = {}) {
+    this.invalidate();
     const pid = parsePlaceId(placeId);
     if (!pid) throw new Error("Identifiant de jeu invalide. Colle l'identifiant ou le lien du jeu.");
     if (jobId && !/^[0-9a-fA-F-]{8,64}$/.test(String(jobId))) throw new Error("Identifiant de serveur invalide.");
@@ -262,7 +283,7 @@ class RobloxLauncher {
     try { latest = await this._latest(force); }
     catch (e) { error = e && e.status === 429 ? "Roblox limite les demandes pour le moment : réessaie dans une minute." : "Impossible de vérifier la dernière version de Roblox pour le moment."; this.log.warn("Version Roblox : " + (e && e.message)); }
     const inst = this.installedVersions();
-    const procs = await this.processes();
+    const procs = await this.processesCached(force || this._updating ? 0 : 2500); // pendant une mise à jour : toujours la liste réelle
     const now = Date.now();
     const u = this._updating && now < this._updating.until ? this._updating : null;
     let upToDate = latest && inst.length ? inst.some((v) => v.guid === latest.guid) : null;
@@ -279,6 +300,7 @@ class RobloxLauncher {
 
   /** Déclenche la mise à jour par la voie officielle (le lien roblox-player: ouvre Roblox, qui se met à jour avant de démarrer). */
   async update({ closeFirst = false } = {}) {
+    this.invalidate();
     if (this.platform !== "win32") throw new Error("La mise à jour de Roblox fonctionne uniquement sous Windows.");
     if (this._updating && Date.now() < this._updating.until) throw new Error("Une mise à jour est déjà en cours.");
     const st = await this.updateCheck(true);
@@ -316,6 +338,7 @@ class RobloxLauncher {
 
   /** Rejoint le serveur exact d'un ami ou d'un profil suivi, si Roblox le permet. */
   async join(userId) {
+    this.invalidate();
     if (!/^\d+$/.test(String(userId))) throw new Error("Identifiant invalide.");
     const client = this.accounts.activeClient();
     if (!client) throw new Error("Aucun compte actif.");

@@ -1,5 +1,5 @@
 "use strict";
-// Intro vidéo de lancement (v1.5.9 : lecture fluide).
+// Intro vidéo de lancement (v1.6.0 : lecture fluide).
 //  - Première chose visible : le calque #intro (z-index maximal, fond bleu opaque = première image de la vidéo) recouvre TOUT.
 //  - L'interface est construite et DESSINÉE sous le calque AVANT que la vidéo ne démarre (pré-roulage) : tout le coût de
 //    démarrage (scripts, mise en page, premier rendu, rastérisation des fonds) tombe pendant que l'écran affiche un aplat bleu.

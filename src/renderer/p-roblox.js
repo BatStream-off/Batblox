@@ -82,11 +82,12 @@ B.pages.accounts = {
     p.append(h("div", { class: "notice" }, "🔒 Les sessions sont chiffrées par Windows. Elles ne sont jamais écrites en clair, ni exportées, ni envoyées à Discord ou ntfy, ni inscrites dans les journaux."));
     const list = B.S.accounts;
     if (!list.length) { p.append(h("div", { class: "card empty" }, "Aucun compte. Ajoute ton premier compte Roblox pour commencer.")); return; }
+    if (list.length > 1) { const ov = h("div", { class: "card", id: "acc-ov" }, h("h2", {}, "Tous mes comptes"), h("div", { class: "sk", style: "height:120px" })); p.append(ov); this.overview(ov); }
     for (const a of list) {
       const [cls, txt] = STATUS[a.status] || STATUS.erreur;
       p.append(h("div", { class: "card" }, h("div", { class: "row acc-card" }, B.avatar(a.id, a.label, "lg", a.avatarUrl),
         h("div", { class: "grow" }, h("div", { class: "row" }, h("span", { class: "dot " + cls }), h("b", {}, a.label), a.active ? h("span", { class: "pill" }, "actif") : null, a.isDefault ? h("span", { class: "pill" }, "par défaut") : null),
-          h("div", { class: "muted small" }, "@" + a.name + " · " + txt + (a.checkedAt ? " · vérifié " + B.ago(a.checkedAt) : ""))),
+          h("div", { class: "muted small" }, "@" + a.name + " · " + B.tr(txt) + (a.checkedAt ? " · vérifié " + B.ago(a.checkedAt) : ""))),
         h("div", { class: "row wrap acc-actions" },
           a.active ? null : h("button", { class: "btn sm pri", onclick: () => B.run(() => B.call("accounts:use", a.id)) }, "Utiliser"),
           h("button", { class: "btn sm", onclick: () => this.rename(a) }, "Modifier"),
@@ -96,6 +97,25 @@ B.pages.accounts = {
             : h("button", { class: "btn sm pri", onclick: B.addAccount }, "Reconnecter"),
           h("button", { class: "btn sm bad", onclick: async () => { if (await B.confirm(`Supprimer « ${a.label} » de Batblox ? La session enregistrée sera effacée. Ton compte Roblox n'est pas touché.`, "Supprimer", true)) B.run(() => B.call("accounts:remove", a.id)); } }, "Supprimer")))));
     }
+  },
+  // Vue tous comptes : un résumé côte à côte, sans changer de compte. Seul le compte actif est vérifié en continu :
+  // pour les autres, les chiffres datent de leur dernière vérification (indiquée sous chaque carte).
+  async overview(card) {
+    const rows = await B.run(() => B.call("accounts:overview"));
+    if (!rows || !card.isConnected) return;
+    const n = (v) => (v == null ? "—" : B.numShort(v));
+    const pt = (s) => { s = Math.round(s || 0); const hh = Math.floor(s / 3600), m = Math.round((s % 3600) / 60); return !s ? "0 min" : hh ? hh + " h " + String(m).padStart(2, "0") : m + " min"; };
+    B.clear(card).append(h("h2", {}, "Tous mes comptes"),
+      h("p", { class: "muted small" }, "Seul le compte actif est vérifié en continu : pour les autres, les chiffres datent de leur dernière vérification."),
+      h("div", { class: "acc-ov" }, rows.map((r) => h("div", { class: "acc-ov-col" + (r.active ? " on" : "") },
+        h("div", { class: "row" }, B.avatar(r.id, r.label, "", r.avatarUrl), h("div", { class: "min0" }, h("b", { class: "pii" }, r.label), h("div", { class: "muted small" }, r.active ? "Compte actif" : r.lastCheck ? "Vérifié " + B.ago(r.lastCheck) : "Jamais vérifié"))),
+        h("dl", { class: "acc-ov-kv" },
+          h("div", {}, h("dt", {}, "Amis"), h("dd", {}, n(r.friends), r.online != null ? h("span", { class: "muted small" }, " · " + r.online + " en ligne") : null)),
+          h("div", {}, h("dt", {}, "Demandes"), h("dd", { class: r.requests ? "hot" : "" }, n(r.requests))),
+          h("div", {}, h("dt", {}, "Abonnés"), h("dd", {}, n(r.followers))),
+          h("div", {}, h("dt", {}, "Jeu aujourd'hui"), h("dd", {}, pt(r.today))),
+          h("div", {}, h("dt", {}, "Jeu sur 7 jours"), h("dd", {}, pt(r.week)))),
+        r.active ? h("span", { class: "pill ok" }, "✓ actif") : h("button", { class: "btn sm", disabled: r.status !== "ok", onclick: () => B.run(() => B.call("accounts:use", r.id)) }, "Utiliser ce compte")))));
   },
   async rename(a) {
     const i = h("input", { type: "text", value: a.label, maxlength: 40, "aria-label": "Nom du profil" });
@@ -235,7 +255,7 @@ B.pages.maint = {
   },
   async logs(show) {
     const b = B.clear(B.$("#m-log"));
-    b.append(h("div", { class: "row" }, h("h2", { class: "grow" }, "Journaux"), h("button", { class: "btn sm", title: "Ouvre la console de l'interface (raccourci : F12)", onclick: () => B.run(() => B.call("app:devtools")) }, "Console (F12)"), h("button", { class: "btn sm", onclick: () => this.logs(!show) }, show ? "Masquer" : "Afficher")));
+    b.append(h("div", { class: "row" }, h("h2", { class: "grow" }, "Journaux"), h("button", { class: "btn sm", title: "Ouvre la console de l'interface (raccourci : F12)", onclick: () => B.run(() => B.call("app:devtools")) }, "Console (F12)"), h("button", { class: "btn sm", onclick: () => this.logs(!show) }, show ? "Masquer" : "Afficher"), h("button", { class: "btn sm pri", onclick: () => B.report() }, "🐞 Signaler un problème")));
     if (!show) return;
     const l = await B.run(() => B.call("maint:logs"));
     b.append(h("pre", { class: "log" }, (l && l.length ? l.join("\n") : "Journal vide.")));

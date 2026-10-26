@@ -402,7 +402,7 @@ test("personnalisation : réactivation depuis la source mémorisée (sans réimp
 test("interface : initiales (accents, emojis), grands nombres et octets en français", () => {
   const src = fs.readFileSync(path.join(__dirname, "../src/renderer/lib.js"), "utf8");
   const grab = (name) => { const m = src.match(new RegExp("^B\\." + name + " = .*$", "m")); assert.ok(m, "B." + name + " introuvable"); return m[0]; };
-  const B = {}; new Function("B", ["num", "numShort", "initial", "bytes"].map(grab).join("\n"))(B);
+  const B = { loc: () => "fr-FR" }; new Function("B", ["num", "numShort", "initial", "bytes"].map(grab).join("\n"))(B);
   assert.equal(B.initial("Équipe Blox"), "É");
   assert.equal(B.initial("[🎃 HALLOWEEN] Adopt Me!"), "H");
   assert.equal(B.initial("🍕🍕"), "🍕");
@@ -1129,7 +1129,7 @@ test("mise à jour : version portable → page de la release, rien n'est lancé 
   assert.equal((await makeUpdater(REL("v1.5.0")).u.install()).already, true);
 });
 
-// ---------------------------------------------------------------- v1.5.9 : temps de jeu, planification, notifications
+// ---------------------------------------------------------------- v1.6.0 : temps de jeu, planification, notifications
 const { PlayTime, dayKey, addTime, splitByDay } = require("../src/main/core/playtime");
 const { Scheduler, digestDue, backupDue, toPrune, buildDigest } = require("../src/main/core/scheduler");
 const { matchesGame } = require("../src/main/core/notifier");
@@ -1233,4 +1233,155 @@ test("notifications : jeux surveillés, silence en jeu puis résumé de fin de p
   // Hors partie, l'alerte de jeu surveillé est cliquable (rejoindre l'ami)
   n.notify([ev[1]], new Date(2026, 9, 26, 15));
   assert.equal(shown[1].o.join, "6");
+});
+
+// ---------------------------------------------------------------- v1.6.0 (2) : notes et groupes d'amis
+const { People, allowEntry, cleanGroups } = require("../src/main/core/people");
+
+test("groupes d'amis : nettoyage, notes, membres, suppression d'un groupe", () => {
+  const g = cleanGroups([{ name: "  Proches " }, { name: "proches" }, { name: "" }, { name: "x".repeat(40), color: "nope" }, null]);
+  assert.equal(g.length, 2);
+  assert.equal(g[0].name, "Proches");
+  assert.equal(g[1].name.length, 24);
+  assert.ok(["bleu", "vert", "orange", "rose", "violet", "cyan", "jaune", "gris"].includes(g[1].color));
+  const p = new People({ storage: memStore() });
+  assert.equal(p.get().groups.length, 2); // Proches + École par défaut
+  const [a, b] = p.get().groups;
+  assert.equal(p.setNote("100", "  Vrai prénom : Lucas  "), "Vrai prénom : Lucas");
+  assert.equal(p.setNote("100", "x".repeat(900)).length, 500);
+  p.setNote("100", ""); assert.equal(p.get().notes["100"], undefined);
+  assert.throws(() => p.setNote("abc", "x"), /inconnu/);
+  assert.deepEqual(p.setMembers("100", [a.id, b.id, "inconnu", a.id]), [a.id, b.id]);
+  p.setGroups([a]); // École supprimée → détachée des membres
+  assert.deepEqual(p.get().members["100"], [a.id]);
+});
+
+test("groupes d'amis : sourdine et connexions seulement pour mes groupes", () => {
+  const data = { groups: [{ id: "g1", name: "Proches", conn: true, mute: false }, { id: "g2", name: "Bruyants", conn: false, mute: true }, { id: "g3", name: "École", conn: false, mute: false }],
+    members: { "1": ["g1"], "2": ["g2"], "3": ["g3"] } };
+  const on = (id) => ({ type: "online", friendId: id }), add = (id) => ({ type: "added", friendId: id });
+  assert.equal(allowEntry(on("1"), data, false), true);
+  assert.equal(allowEntry(on("2"), data, false), false);   // sourdine : rien
+  assert.equal(allowEntry(add("2"), data, false), false);
+  assert.equal(allowEntry(on("3"), data, true), false);    // groupe sans « Connexions »
+  assert.equal(allowEntry(on("9"), data, true), false);    // sans groupe
+  assert.equal(allowEntry(on("1"), data, true), true);
+  assert.equal(allowEntry(add("9"), data, true), true);    // les autres événements passent
+  // Branché dans le notificateur
+  const shown = [];
+  const n = new Notifier({ getSettings: () => DEFAULT_SETTINGS, desktop: (t) => shown.push(t), logger, allow: (e) => allowEntry(e, data, true) });
+  n.notify([on("9"), on("1"), add("2")], new Date(2026, 9, 26, 15));
+  assert.equal(shown.length, 1);
+});
+
+// ---------------------------------------------------------------- v1.6.0 (4) : alerte de connexion, bilan du mois, traduction
+const { alertHits } = require("../src/main/core/people");
+const { buildRecap, monthsWithData, recapText, recapCsv } = require("../src/main/core/recap");
+const { makeTranslator } = require("../src/renderer/i18n-core");
+const I18N_EN = require("../src/renderer/i18n-en");
+
+test("alerte « prochaine connexion » : unique, et un simple jeu ne compte pas si l'ami était déjà en ligne", () => {
+  const alerts = { "1": { wasOn: false }, "2": { wasOn: true } };
+  const hits = alertHits(alerts, [{ type: "ingame", friendId: "1" }, { type: "ingame", friendId: "2" }, { type: "offline", friendId: "2" }, { type: "online", friendId: "1" }]);
+  assert.deepEqual(hits.map((e) => e.friendId + ":" + e.type), ["1:ingame"]);
+  const p = new People({ storage: memStore() });
+  p.setAlert("2", true, true);
+  assert.deepEqual(p.alertIds(), ["2"]);
+  assert.equal(p.takeAlerts([{ type: "ingame", friendId: "2" }]).length, 0);
+  assert.equal(p.takeAlerts([{ type: "online", friendId: "2", friendName: "Robin" }]).length, 1);
+  assert.deepEqual(p.alertIds(), []); // désactivée toute seule
+  assert.throws(() => p.setAlert("x", true), /inconnu/);
+});
+
+test("bilan du mois : amis gagnés / perdus (aller-retour ignoré), temps de jeu, jeux des amis, exports", () => {
+  const t = (d, h = 12) => new Date(2026, 9, d, h).getTime();
+  const e = (type, id, name, d, extra) => Object.assign({ ts: t(d), type, friendId: id, friendName: name, target: "me", acc: "1" }, extra);
+  const entries = [e("added", "5", "Bane", 3), e("removed", "7", "Joker", 5), e("removed", "6", "Oracle", 6), e("added", "6", "Oracle", 8),
+    e("renamed", "8", "Nightwing", 9, { oldName: "DickG" }), e("ingame", "5", "Bane", 10, { place: "Blox Fruits", pid: "1" }), e("ingame", "9", "Selina", 10, { place: "Blox Fruits", pid: "1" }),
+    e("added", "10", "Hors mois", 2, { ts: new Date(2026, 8, 30).getTime() }), e("added", "11", "Autre compte", 3, { acc: "2" })];
+  const play = { "2026-10-10": { s: 3600, g: { "1": { n: "Blox Fruits", s: 3600 } } }, "2026-10-11": { s: 1800, g: { "2": { n: "Adopt Me!", s: 1800 } } }, "2026-09-30": { s: 999, g: {} } };
+  const r = buildRecap({ entries, playDays: play, y: 2026, m: 9, accId: "1" });
+  assert.deepEqual(r.friends.gained.map((x) => x.name), ["Bane"]);
+  assert.deepEqual(r.friends.removed.map((x) => x.name), ["Joker"]);
+  assert.equal(r.friends.renamed.length, 1);
+  assert.equal(r.play.total, 5400);
+  assert.equal(r.play.days, 2);
+  assert.equal(r.play.best.day, "2026-10-10");
+  assert.equal(r.friendGames[0].name, "Blox Fruits");
+  assert.equal(r.friendGames[0].players, 2);
+  assert.match(recapText(r), /1 h 30 sur 2 jour/);
+  assert.match(recapCsv(r), /"ami ajouté";"Bane"/);
+  assert.deepEqual(monthsWithData(entries, play, t(20)).slice(0, 2), ["2026-10", "2026-09"]);
+});
+
+test("traduction anglaise : textes complets, emoji en tête, morceaux de phrase, guillemets", () => {
+  const tr = makeTranslator(I18N_EN);
+  assert.equal(tr("Vérifier maintenant"), "Check now");
+  assert.equal(tr("🔄 Vérifier maintenant"), "🔄 Check now");
+  assert.equal(tr("  Annuler "), "  Cancel ");
+  assert.equal(tr("Profil « Bob » ajouté."), "Profile “Bob” added.");
+  assert.equal(tr("Encore 28 min avant ta limite de 2 h 00"), "Still 28 min before your limit of 2 h 00");
+  assert.equal(tr("Bane"), "Bane");           // un pseudo n'est pas touché
+  assert.equal(tr("12 %"), "12 %");
+  for (const [k, v] of Object.entries(I18N_EN.full)) assert.ok(typeof v === "string" && v.trim().length > 0, "traduction vide : " + k);
+  assert.ok(Object.keys(I18N_EN.full).length > 1300);
+});
+
+// ---------------------------------------------------------------- Cache (latence)
+const { Cache } = require("../src/main/core/cache");
+
+test("cache : frais, périmé servi puis rafraîchi, expiré, valeur vide non gardée", async () => {
+  let t = 0; const c = new Cache({ now: () => t });
+  let calls = 0; const fn = async () => ++calls;
+  assert.equal(await c.wrap("k", fn, { ttl: 100, stale: 1000 }), 1);
+  t = 50; assert.equal(await c.wrap("k", fn, { ttl: 100, stale: 1000 }), 1); // frais : pas d'appel
+  t = 500; let refreshed = null;
+  assert.equal(await c.wrap("k", fn, { ttl: 100, stale: 1000, onRefresh: (v) => { refreshed = v; } }), 1); // périmé : ancienne valeur tout de suite
+  await new Promise((r) => setImmediate(r)); await new Promise((r) => setImmediate(r));
+  assert.equal(refreshed, 2); // … et nouvelle valeur en arrière-plan
+  t = 5000; assert.equal(await c.wrap("k", fn, { ttl: 100, stale: 1000 }), 3); // trop vieux : on attend
+  assert.equal(await c.wrap("vide", async () => null, { ttl: 100, cacheIf: (v) => v != null }), null);
+  assert.equal(c.peek("vide"), null);
+  assert.equal(await c.wrap("k", fn, { ttl: 100, force: true }), 4);
+});
+
+test("cache : deux demandes identiques simultanées ne partent qu'une fois", async () => {
+  const c = new Cache();
+  let calls = 0; const slow = () => new Promise((r) => setTimeout(() => r(++calls), 20));
+  const [a, b] = await Promise.all([c.once("x", slow), c.once("x", slow)]);
+  assert.equal(a, 1); assert.equal(b, 1); assert.equal(calls, 1);
+  assert.equal(c.info().stats.dedup, 1);
+  // une erreur n'est pas gardée : l'appel suivant réessaie
+  await assert.rejects(c.once("y", async () => { throw new Error("réseau"); }));
+  assert.equal(await c.once("y", async () => "ok"), "ok");
+});
+
+test("cache : listes d'identifiants (avatars) — seul le manquant part au réseau, les absents ne sont pas redemandés", async () => {
+  let t = 0; const c = new Cache({ now: () => t });
+  const asked = [];
+  const fetchMany = async (ids) => { asked.push(ids.slice().sort()); const o = {}; for (const id of ids) if (id !== "3") o[id] = "url" + id; return o; };
+  assert.deepEqual(await c.many("avatar:", ["1", "2", "3"], fetchMany, { ttl: 100, stale: 1000 }), { 1: "url1", 2: "url2" });
+  assert.deepEqual(await c.many("avatar:", ["1", "2", "3", "4"], fetchMany, { ttl: 100, stale: 1000 }), { 1: "url1", 2: "url2", 4: "url4" });
+  assert.deepEqual(asked, [["1", "2", "3"], ["4"]]); // « 3 » (sans avatar) n'est pas redemandé
+  t = 500; // périmés : servis tout de suite, rafraîchis en arrière-plan
+  assert.deepEqual(await c.many("avatar:", ["1"], fetchMany, { ttl: 100, stale: 1000 }), { 1: "url1" });
+  await new Promise((r) => setImmediate(r));
+  assert.deepEqual(asked[2], ["1"]);
+});
+
+test("cache : sur le disque seulement ce qui est autorisé, relu au démarrage, vidable", async () => {
+  const dir = tmp();
+  const s1 = new Storage(dir, { delay: 5 });
+  const c1 = new Cache({ storage: s1, persist: (k) => k.startsWith("avatar:") });
+  c1.set("avatar:1", "url1", 60000, 86400000);
+  c1.set("details:1", { robux: 120 }, 60000);
+  c1.flush(); s1.flush();
+  const raw = fs.readFileSync(path.join(dir, "cache.json"), "utf8");
+  assert.match(raw, /url1/);
+  assert.doesNotMatch(raw, /robux/); // jamais de Robux, de session ni de message sur le disque
+  const c2 = new Cache({ storage: new Storage(dir, { delay: 5 }), persist: (k) => k.startsWith("avatar:") });
+  assert.equal(c2.peek("avatar:1").value, "url1");
+  assert.equal(c2.peek("details:1"), null);
+  assert.equal(c2.clear(), 1);
+  assert.equal(c2.peek("avatar:1"), null);
 });

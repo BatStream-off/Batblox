@@ -101,7 +101,7 @@ B.pages.profile = {
       card.append(h("div", { class: "kv" }, Array.from({ length: 5 }, () => h("div", {}, h("div", { class: "sk sk-line short", style: "margin:0 0 6px" }), h("div", { class: "sk sk-line", style: "margin:0" })))));
     } else {
       const item = (k, v) => h("div", {}, h("dt", {}, k), h("dd", {}, v));
-      const created = p.created ? new Date(p.created).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" }) : "—";
+      const created = p.created ? new Date(p.created).toLocaleDateString(B.loc(), { day: "numeric", month: "short", year: "numeric" }) : "—";
       const desc = p.description || "";
       const long = desc.length > 110 || desc.split("\n").length > 2;
       const dd = h("div", { class: "desc" + (desc ? "" : " none") + (long ? " clamp" : "") }, desc || "Aucune description.");
@@ -111,7 +111,7 @@ B.pages.profile = {
         item("Robux", d.robux != null ? B.num(d.robux) : "—"),
         item("Premium", d.premium == null ? "—" : d.premium ? "Oui" : "Non"),
         item("Session", d.status === "ok" ? h("span", { title: d.checkedAt ? "Vérifiée " + B.ago(d.checkedAt) : "" }, "Connectée") : "À reconnecter")),
-        h("div", { class: "desc-row" }, dd, long ? h("button", { class: "btn sm ghost", onclick: (e) => { const c = dd.classList.toggle("clamp"); e.target.textContent = c ? "Voir plus" : "Réduire"; } }, "Voir plus") : null));
+        h("div", { class: "desc-row" }, dd, long ? h("button", { class: "btn sm ghost", onclick: (e) => { const c = dd.classList.toggle("clamp"); e.target.textContent = B.tr(c ? "Voir plus" : "Réduire"); } }, "Voir plus") : null));
     }
     box.append(card);
   },
@@ -194,7 +194,7 @@ B.pages.profile = {
     else if (st.loaded && !st.err) box.append(h("div", { class: "empty" }, q ? "Aucun résultat pour cette recherche." : PF_EMPTY[kind]));
     if (st.next && !q) more.append(h("button", { class: "btn", disabled: st.busy, onclick: () => this.fetchMore(kind, false) }, st.busy ? "Chargement…" : "Charger plus"));
     const total = this.counts()[kind], c = B.$("#pf-count");
-    if (c && st.loaded) c.textContent = (total != null && total > st.items.length ? B.num(st.items.length) + " affiché(s) sur " + B.num(total) : B.num(st.items.length) + " au total");
+    if (c && st.loaded) c.textContent = B.tr((total != null && total > st.items.length ? B.num(st.items.length) + " affiché(s) sur " + B.num(total) : B.num(st.items.length) + " au total"));
   },
 
   row(kind, u) {

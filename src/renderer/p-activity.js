@@ -7,6 +7,7 @@ const ACT_TABS = [
   ["history", "Historique", "history", "Changements détectés"],
   ["stats", "Statistiques", "stats", "Évolution et présence"],
   ["playtime", "Temps de jeu", "roblox", "Par jour et par jeu"],
+  ["recap", "Bilan", "stats", "Le mois à partager"],
   ["notifs", "Notifications", "notifs", "Alertes et horaires"]
 ];
 

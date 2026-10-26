@@ -6,7 +6,8 @@ B.pages.friends = {
     this.embedded = !!(opts && opts.embedded);
     this.root = h("div", { class: "page" + (this.embedded ? " embedded" : "") });
     view.append(this.root);
-    this.list = await B.run(() => B.call("friends:list")) || [];
+    const [list] = await Promise.all([B.run(() => B.call("friends:list")), B.people.load()]);
+    this.list = list || [];
     this.draw();
   },
   draw() {
@@ -16,10 +17,19 @@ B.pages.friends = {
       [h("button", { class: "btn", onclick: async () => { await B.run(() => B.call("monitor:checkNow")); this.list = await B.call("friends:list"); this.draw(); } }, "🔄 Vérifier maintenant")], this.embedded));
     if (mon.presenceMode !== "all") root.append(h("div", { class: "notice" }, "Le statut en ligne n'est suivi que pour les amis marqués « Suivi ». Tu peux suivre tous tes amis dans Réglages."));
     const bar = h("div", { class: "row wrap", style: "margin-bottom:12px" },
-      h("input", { type: "search", placeholder: "Rechercher un ami…", value: this.q, "aria-label": "Rechercher", style: "max-width:260px", oninput: (e) => { this.q = e.target.value; this.drawList(); } }),
-      h("select", { "aria-label": "Trier", onchange: (e) => { this.sort = e.target.value; this.drawList(); } }, ["statut", "nom", "dernière activité"].map((o) => h("option", { value: o, selected: o === this.sort }, "Tri : " + o))),
+      h("input", { type: "search", placeholder: "Rechercher un ami…", value: this.q, "aria-label": "Rechercher", style: "max-width:260px", oninput: (e) => { this.q = e.target.value; clearTimeout(this._qt); this._qt = setTimeout(() => this.drawList(), 120); } }),
+      h("select", { "aria-label": "Trier", onchange: (e) => { this.sort = e.target.value; this.drawList(); } }, ["statut", "nom", "dernière activité"].map((o) => h("option", { value: o, selected: o === this.sort }, "Tri : " + B.tr(o)))),
       h("div", { class: "chips" }, [["tous", "Tous"], ["en_ligne", "En ligne"], ["jeu", "En jeu"], ["hors_ligne", "Hors ligne"], ["suivis", "Suivis"]].map(([v, l]) => h("button", { class: "chip" + (this.filter === v ? " on" : ""), onclick: () => { this.filter = v; this.draw(); } }, l))));
-    root.append(bar, h("div", { class: "card list", id: "fl" }));
+    // Groupes d'amis : un filtre par groupe + gestion
+    const groups = B.people.data.groups;
+    if (this.filter.startsWith("g:") && !groups.some((g) => "g:" + g.id === this.filter)) this.filter = "tous";
+    const gbar = h("div", { class: "row wrap gbar" }, h("span", { class: "muted small" }, "Groupes :"),
+      h("div", { class: "chips" }, groups.map((g) => {
+        const n = this.list.filter((f) => (B.people.data.members[String(f.id)] || []).includes(g.id)).length;
+        return h("button", { class: "chip gpick gc-" + g.color + (this.filter === "g:" + g.id ? " on" : ""), onclick: () => { this.filter = this.filter === "g:" + g.id ? "tous" : "g:" + g.id; this.draw(); } }, g.name + " · " + n);
+      })),
+      h("button", { class: "btn sm ghost", onclick: async () => { if (await B.people.manage()) this.draw(); } }, "⚙ Gérer les groupes"));
+    root.append(bar, gbar, h("div", { class: "card list", id: "fl" }));
     this.drawList();
     const tok = (this.idleTok = (this.idleTok || 0) + 1);
     B.call("friends:idle").then((idle) => {
@@ -35,7 +45,10 @@ B.pages.friends = {
     const box = B.$("#fl"); if (!box) return;
     B.clear(box);
     const q = this.q.trim().toLowerCase();
-    let l = this.list.filter((f) => (!q || String(f.name || "").toLowerCase().includes(q)) && (this.filter === "tous" || (this.filter === "suivis" ? f.tracked : this.filter === "en_ligne" ? f.status === "en_ligne" || f.status === "studio" : f.status === this.filter)));
+    const inGroup = (f) => (B.people.data.members[String(f.id)] || []).includes(this.filter.slice(2));
+    // La recherche porte aussi sur les notes (« Lucas » retrouve l'ami dont la note dit « vrai prénom : Lucas »)
+    let l = this.list.filter((f) => (!q || String(f.name || "").toLowerCase().includes(q) || B.people.note(f.id).toLowerCase().includes(q))
+      && (this.filter === "tous" || (this.filter.startsWith("g:") ? inGroup(f) : this.filter === "suivis" ? f.tracked : this.filter === "en_ligne" ? f.status === "en_ligne" || f.status === "studio" : f.status === this.filter)));
     if (this.sort === "nom") l.sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), "fr"));
     else if (this.sort === "dernière activité") { const act = (f) => (f.status === "jeu" || f.status === "studio" || f.status === "en_ligne" ? Number.MAX_SAFE_INTEGER : Number(f.lastOn) || 0); l.sort((a, b) => act(b) - act(a)); }
     else l.sort((a, b) => this.rk(a) - this.rk(b) || String(a.name || "").localeCompare(String(b.name || ""), "fr"));
@@ -43,8 +56,11 @@ B.pages.friends = {
     for (const f of l.slice(0, 300)) {
       const sub = f.status === "jeu" ? "🎮 " + (f.place || "En jeu") : f.status === "hors_ligne" ? "Dernière activité : " + (f.lastOn ? B.ago(f.lastOn) : "inconnue") : B.statusLabel(f.status);
       const refresh = async () => { this.list = await B.call("friends:list"); this.drawList(); };
-      box.append(h("div", { class: "item" }, B.avatar(f.id, f.name, "ring " + f.status), h("div", { class: "main" }, h("b", {}, f.name), h("span", { class: "muted small" }, sub)), B.dot(f.status),
+      const note = B.people.note(f.id);
+      box.append(h("div", { class: "item" }, B.avatar(f.id, f.name, "ring " + f.status),
+        h("div", { class: "main" }, h("b", {}, f.name, B.people.hasAlert(f.id) ? h("span", { class: "alert-dot", title: "Alerte « prochaine connexion » active" }, B.glyph("bell")) : null, B.people.chips(f.id)), h("span", { class: "muted small" }, sub), note ? h("span", { class: "fnote", title: note }, note) : null), B.dot(f.status),
         h("div", { class: "item-actions" },
+          h("button", { class: "btn sm" + (note || B.people.groupsOf(f.id).length ? " has" : ""), title: "Fiche : note personnelle et groupes", "aria-label": "Fiche de " + f.name, onclick: () => B.people.open(f, () => this.drawList()) }, "📝"),
           f.canJoin ? h("button", { class: "btn sm", onclick: () => B.run(() => B.call("roblox:join", f.id)).then((r) => r && B.toast("Roblox se lance…", "ok")) }, "Rejoindre") : null,
           h("button", { class: "btn sm", title: "Historique de cet ami", "aria-label": "Historique de cet ami", onclick: () => { B.pages.history.search = f.name.replace(/ \(@.*\)$/, ""); B.go("history"); } }, "📜"),
           h("button", { class: "btn sm", title: "Statistiques de présence", "aria-label": "Statistiques de présence", onclick: () => this.showStats(f) }, "📊"),
@@ -94,5 +110,6 @@ B.pages.friends = {
     await B.modal({ title: "Faire le tri", body });
     this.list = await B.call("friends:list"); this.draw();
   },
+  onPeople() { B.people.load(true).then(() => this.drawList()); },
   onMonitor() { if (document.activeElement && document.activeElement.tagName === "INPUT") return; B.call("friends:list").then((l) => { this.list = l; this.drawList(); }).catch(() => {}); }
 };

@@ -110,7 +110,7 @@ La page Messages repose sur les API de chat de Roblox, non documentées officiel
 
 La lecture ne démarre qu'une fois la vidéo chargée et l'interface déjà dessinée sous le calque bleu (pré-roulage, quelques dixièmes de seconde invisibles) ; pendant la lecture rien ne bouge en dessous (animations en pause, éclairs et lueur de souris coupés), ce qui supprime les saccades. Si la vidéo est absente ou ne démarre pas, l'interface s'affiche directement.
 
-## Nouveautés v1.5.9
+## Nouveautés v1.6.0
 - **Intro vidéo** : plus de saccades. Avant, la vidéo démarrait pendant le chargement de l'interface, l'interface était dévoilée sous la vidéo 1 s avant la fin (avec un recalcul de style à chaque image), et le décor animé repartait pendant le fondu.
 - **Une seule barre en haut** : logo, état du monitoring, compte et boutons de la fenêtre réunis (l'ancienne barre de titre affichait « Batblox » une deuxième fois).
 - **Accueil** : un bandeau unique avec ton statut, le jeu qui sera lancé et le bouton « Lancer Roblox », puis les compteurs du compte (amis, demandes, abonnés, abonnements, profils suivis), cliquables.
@@ -119,7 +119,7 @@ La lecture ne démarre qu'une fois la vidéo chargée et l'interface déjà dess
 - **États vides** : silhouette de chauve-souris vectorielle dans la couleur du thème au lieu de l'emoji 🦇.
 - **Réglages** : barre de sections collante en haut de la page (Apparence, Son, Monitoring…) ; la section visible est mise en évidence.
 
-### Nouvelles options (v1.5.9)
+### Nouvelles options (v1.6.0)
 | Option | Où | Détail |
 |---|---|---|
 | Intro au démarrage | Réglages → Apparence | Interrupteur. L'intro se passe aussi d'un clic, avec Échap, Entrée ou Espace. |
@@ -133,4 +133,35 @@ La lecture ne démarre qu'une fois la vidéo chargée et l'interface déjà dess
 | Jeux surveillés | Activité → Notifications | Alerte dédiée quand un ami lance un jeu de la liste (nom partiel ou identifiant) ; un clic sur la notification le rejoint. |
 | Résumé quotidien | Activité → Notifications | Un message par jour sur Discord / ntfy à l'heure choisie (`core/scheduler.js`), avec aperçu et envoi immédiat. |
 | Sauvegarde automatique | Réglages → Sauvegarde automatique | Chaque semaine dans le dossier choisi, fichiers `batblox-sauvegarde-auto-AAAA-MM-JJ.json`, les N plus récents conservés ; les autres fichiers du dossier ne sont jamais touchés. Dossier absent : nouvel essai une heure plus tard. Le chemin du dossier n'est pas exporté. |
+| Notes sur un ami | Mon profil → Amis → bouton Fiche (📝) | Texte libre (500 caractères), visible sous le pseudo ; la recherche d'amis cherche aussi dans les notes. Stockage local `people.json`, inclus dans l'export, jamais envoyé ailleurs. |
+| Groupes d'amis | Fiche d'un ami, « Gérer les groupes » | Jusqu'à 12 groupes colorés (Proches et École créés par défaut), filtre dans la liste d'amis. Par groupe : « Connexions » (reste notifié quand « Connexions seulement pour mes groupes » est actif, dans Activité → Notifications) et « Sourdine » (aucune notification). Règle dans `core/people.js` (`allowEntry`). |
+| Recherche globale | Ctrl + K ou « Rechercher… » en haut | Pages, réglages (la carte visée clignote), actions, amis (et leurs notes), rejoindre un ami, jeux récents / favoris / tendances, ou un identifiant / lien de jeu collé. |
+| Mode streamer | Icône œil barré en haut, Ctrl + Maj + S, menu de la zone de notification | Floute pseudos, avatars, identifiants, notes, messages et historique ; notifications Windows anonymes ; compte masqué dans la zone de notification. Les données ne sont pas modifiées. |
+| Mini-fenêtre « Amis en ligne » | Icône en haut, Ctrl + Maj + M, zone de notification, Réglages → Système | Fenêtre compacte (`index.html?mini=1`), toujours au premier plan (désactivable), position et taille mémorisées, bouton Rejoindre. |
+| Vue tous comptes | Comptes (dès 2 comptes) | Amis, en ligne, demandes, abonnés, temps de jeu du jour et de la semaine, côte à côte. Seul le compte actif est vérifié en continu : les autres affichent leur dernière vérification. |
+| Quoi de neuf | Après une mise à jour, ou Réglages → Système | Liste des nouveautés de la version (`renderer/whatsnew.js`, `B.CHANGELOG`), avec raccourcis vers les pages concernées. Affichée une fois par version (`settings.ui.seenVersion`). |
+| Guide du premier lancement | Nouvelle installation, ou Réglages → Système | Trois écrans : compte, apparence (thème + couleur), notifications. |
+| Prévenir à la prochaine connexion | Fiche d'un ami (📝) | Alerte unique : une notification à sa prochaine connexion (s'il est déjà en ligne : à sa prochaine reconnexion), même si les connexions sont coupées dans les notifications. Son statut est lu même s'il n'est pas « Suivi ». Une cloche s'affiche à côté de son pseudo tant que l'alerte est active. |
+| Anciens pseudos | Fiche d'un ami | Liste des changements de pseudo enregistrés dans l'historique, du plus récent au plus ancien. |
+| Signaler un problème | Réglages → Système, Maintenance → Journaux, Ctrl + K | Rapport : version, système, état, réglages et 250 lignes de journal. Retirés : session Roblox, webhook, sujet ntfy, dossier de sauvegarde, lanceur personnalisé, identifiant Discord, chemin du dossier personnel (`%USERPROFILE%`), pseudos des comptes, notes d'amis. Copier, enregistrer en .txt, ou ouvrir GitHub. |
+| Bilan du mois | Activité → Bilan | Temps de jeu (total, jours joués, plus grosse journée, jeux), amis gagnés / perdus (un aller-retour dans le mois ne compte pas), pseudos changés, demandes, jeux de tes amis. Export : image PNG, image copiée (à coller dans Discord), texte, CSV. Le mode streamer floute aussi l'image. |
+| Version anglaise | Réglages → Apparence → Langue (et guide du premier lancement) | Première installation : langue de Windows. Le code reste en français ; la traduction est appliquée à l'affichage (`renderer/i18n.js`) avec le dictionnaire `renderer/i18n-en.js` (≈ 1 400 textes + morceaux de phrases), aussi utilisé par `main.js` pour les notifications, la zone de notification, les boîtes de dialogue et Discord / ntfy. Les pseudos, noms de jeux, notes et messages ne sont jamais traduits. **Ajouter un texte** : ajoute sa traduction dans `i18n-en.js`, puis vérifie avec `node tools/i18n-couverture.js`. |
+
+### Latence et cache (v1.6.0)
+`core/cache.js` : cache en mémoire, et sur le disque (`cache.json`) uniquement pour les données publiques et sans secret (avatars, icônes de jeux, tendances, page Découvrir). Jamais de session, de Robux ni de message sur le disque.
+- **Valeur fraîche** : servie sans réseau. **Valeur périmée mais utilisable** : servie tout de suite puis rafraîchie en arrière-plan ; la page affichée se met à jour toute seule (événement `refreshed`). **Requêtes dédoublonnées** : deux demandes identiques au même moment ne partent qu'une fois (au niveau du cache et de la passerelle interface ↔ moteur).
+- Durées : avatars frais 6 h / utilisables 7 jours ; icônes 24 h / 30 jours ; tendances et Découvrir 10 min / 24 h ; détails du profil 5 min / 6 h (mémoire seulement) ; compteurs 2 min / 1 h ; conversations 15 s / 5 min (vidées après un envoi ou une lecture) ; détection de Roblox (`tasklist`) 2,5 s, dossiers d'installation 15 s.
+- **Mon profil** : les 4 compteurs passaient par le service « amis » de Roblox, volontairement espacé de 1,2 s par requête (~4 s d'attente). Ils sont désormais servis depuis le monitoring, qui les tient à jour, et rafraîchis en arrière-plan.
+- **Préchargement** : après la première vérification, avatars des amis (en ligne d'abord), icônes des derniers jeux et tendances sont chargés discrètement.
+- **Interface** : avatars chargés à la demande (`loading="lazy"`, décodage asynchrone) dans les longues listes ; recherche d'amis redessinée au plus toutes les 120 ms pendant la frappe.
+- Réglages → Données → **Cache de Batblox** : taille, part des demandes servies sans attendre Roblox, bouton « Vider le cache ».
+
+Mesures (banc avec un faux Roblox répondant en 200 ms, espacement réel du client) :
+
+| Action | Avant | Après |
+|---|---|---|
+| Mon profil : compteurs (monitoring déjà passé) | 3,8 s | 0 ms |
+| Mon profil : 2e visite (détails + compteurs) | 6,0 s | 0 ms |
+| Accueil après redémarrage : 120 avatars + 12 icônes | 0,8 s | 2 ms |
+| 2 demandes identiques simultanées (120 avatars) | 1,1 s, 4 requêtes | 0,5 s, 2 requêtes (0 après redémarrage) |
 

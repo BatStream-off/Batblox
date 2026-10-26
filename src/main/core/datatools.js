@@ -51,7 +51,7 @@ class DataTools {
     return {
       app: APP_ID, version: 1, exportedAt: new Date().toISOString(),
       note: "Cette sauvegarde ne contient aucune information de connexion Roblox.",
-      data: { history: m.history.entries, watched: m.watched.profiles, stats: m.stats, playtime: this.storage.get("playtime", () => null), settings: safeSettings(this.getSettings()) }
+      data: { history: m.history.entries, watched: m.watched.profiles, stats: m.stats, playtime: this.storage.get("playtime", () => null), people: this.storage.get("people", () => null), settings: safeSettings(this.getSettings()) }
     };
   }
 

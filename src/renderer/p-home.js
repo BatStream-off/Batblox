@@ -39,14 +39,14 @@ B.pages.home = {
     const counts = [["friends", "Amis", s.friends, "friends"], ["requests", "Demandes", s.requests, "mail"], ["followers", "Abonnés", s.followers, "accounts"],
       ["following", "Abonnements", s.following, "follow"], ["watch", "Profils suivis", s.watched, "watch"]];
     box.append(h("div", { class: "counts", role: "list", "aria-label": "Mon compte en chiffres" }, counts.map(([tab, label, n, ico]) =>
-      h("button", { class: "count" + (tab === "requests" && n > 0 ? " hot" : ""), role: "listitem", title: "Ouvrir « " + label + " »", onclick: () => { B.pages.profile.tab = tab; B.go("profile"); } },
+      h("button", { class: "count" + (tab === "requests" && n > 0 ? " hot" : ""), role: "listitem", title: "Ouvrir « " + B.tr(label) + " »", onclick: () => { B.pages.profile.tab = tab; B.go("profile"); } },
         h("span", { class: "count-ico" }, B.icon(ico)), h("span", { class: "count-txt" }, h("b", { title: n == null ? "" : B.num(n) }, B.numShort(n)), h("span", {}, label))))));
     box.append(h("div", { id: "home-friends" }), h("div", { id: "home-recent" }), h("div", { id: "home-trend" }), h("div", { id: "home-games" }));
     this.fillRecent();
     this.fillTrend();
     this.fillFriends();
     this.fillUpdate();
-    B.call("roblox:status").then((r) => { const el = B.$("#home-inst"); if (el) el.textContent = !r.windows ? "Disponible sous Windows uniquement." : !r.installed ? "Roblox n'est pas installé sur ce PC." : r.instances.length ? `Roblox installé, ${r.instances.length} fenêtre${r.instances.length > 1 ? "s" : ""} ouverte${r.instances.length > 1 ? "s" : ""}.` : "Roblox installé, aucune fenêtre ouverte."; }).catch(() => {});
+    B.call("roblox:status").then((r) => { const el = B.$("#home-inst"); if (el) el.textContent = B.tr(!r.windows ? "Disponible sous Windows uniquement." : !r.installed ? "Roblox n'est pas installé sur ce PC." : r.instances.length ? `Roblox installé, ${r.instances.length} fenêtre${r.instances.length > 1 ? "s" : ""} ouverte${r.instances.length > 1 ? "s" : ""}.` : "Roblox installé, aucune fenêtre ouverte."); }).catch(() => {});
   },
   // Rappel discret : visible seulement quand une mise à jour de Roblox est disponible (vérification mémorisée 10 min).
   async fillUpdate() {

@@ -60,7 +60,7 @@ B.go = (id) => {
   // « Amis » et « Profils suivis » vivent désormais dans « Mon profil » (anciens liens et raccourcis conservés)
   if (id === "friends" || id === "watch") { B.pages.profile.tab = id; id = "profile"; }
   // « Historique », « Statistiques » et « Notifications » vivent désormais dans « Activité » (anciens liens conservés)
-  if (id === "history" || id === "stats" || id === "notifs" || id === "playtime") { B.pages.activity.tab = id; id = "activity"; }
+  if (id === "history" || id === "stats" || id === "notifs" || id === "playtime" || id === "recap") { B.pages.activity.tab = id; id = "activity"; }
   if (!B.pages[id]) id = "home";
   B.page = id;
   if (id === "activity" && B.pages.activity.tab === "history") B.S.unread = 0;
@@ -85,6 +85,9 @@ B.applyAppearance = () => {
   const a = B.S.settings.appearance, r = document.documentElement;
   r.dataset.theme = a.theme;
   r.dataset.accent = a.accent || "bleu";
+  r.dataset.streamer = a.streamer ? "1" : "0";
+  const sb = document.getElementById("streamer-btn");
+  if (sb) { sb.setAttribute("aria-pressed", a.streamer ? "true" : "false"); sb.classList.toggle("on", !!a.streamer); sb.setAttribute("aria-label", B.tr(a.streamer ? "Désactiver le mode streamer" : "Activer le mode streamer")); }
   r.dataset.potato = a.potato ? "1" : "0";
   r.dataset.anim = a.animations ? "1" : "0";
   r.dataset.shadow = a.shadows ? "1" : "0";
@@ -105,7 +108,7 @@ B.renderStatus = () => {
   if (!s) return;
   const kind = s.paused ? "paused" : s.error ? "err" : s.running ? "game" : "on";
   const txt = s.paused ? "Monitoring en pause" : s.error ? s.error : s.running ? "Vérification…" : "Monitoring actif · " + B.ago(s.lastRun);
-  el.append(h("span", { class: "dot " + kind }), txt);
+  el.append(h("span", { class: "dot " + kind }), B.tr(txt));
   el.title = s.error || "";
 };
 
@@ -165,6 +168,7 @@ B.addAccount = async () => {
 
 // ---------- Événements du processus principal ----------
 B.onEvent = (evt, payload) => {
+  if (B.isMini && (evt === "navigate" || evt === "launch" || evt === "shortcut" || evt === "update")) return; // concernent la fenêtre principale
   if (evt === "monitor") { B.S.snap = payload; B.renderStatus(); const p = B.pages[B.page]; if (p && p.onMonitor && !document.querySelector(".scrim")) p.onMonitor(payload); }
   else if (evt === "history") { if (!(B.page === "activity" && B.pages.activity.tab === "history")) B.S.unread = (B.S.unread || 0) + payload; B.renderNav(); const p = B.pages[B.page]; if (p && p.onHistory) p.onHistory(); }
   else if (evt === "accounts") { B.S.accounts = payload; const p = B.pages[B.page]; if (p && p.onAccounts) p.onAccounts(); }
@@ -173,6 +177,8 @@ B.onEvent = (evt, payload) => {
   else if (evt === "navigate") B.go(payload);
   else if (evt === "shortcut") B.shortcut(payload);
   else if (evt === "toast") { if (payload && payload.text) B.toast(payload.text, payload.kind); }
+  else if (evt === "refreshed") B.onRefreshed(payload);
+  else if (evt === "people") { B.people.loaded = false; const p = B.pages[B.page]; if (p && p.onPeople) p.onPeople(); else if (B.page === "profile" && B.pages.friends.onPeople && B.$("#fl")) B.pages.friends.onPeople(); }
   else if (evt === "playtime") { const p = B.pages[B.page]; if (p && p.onPlaytime) p.onPlaytime(); }
   else if (evt === "backup") { B.S.backup = payload; const p = B.pages[B.page]; if (p && p.onBackup) p.onBackup(payload); }
   else if (evt === "launch") { B.go("home"); if (B.S.active && B.pages.home.launch) B.pages.home.launch(); }
@@ -187,6 +193,7 @@ B.shortcut = (k) => {
   const m = /^nav(\d)$/.exec(k);
   if (m) { const pages = B.NAV.filter((x) => Array.isArray(x)).map((x) => x[0]); const id = pages[Number(m[1]) - 1]; if (id) B.go(id); return; }
   if (k === "settings") return B.go("settings");
+  if (k === "search") return B.search && B.search.open();
   if (!B.S.active) return;
   if (k === "launch") { B.go("home"); if (B.pages.home.launch) B.pages.home.launch(); }
   else if (k === "check") { B.toast("Vérification en cours…"); B.run(() => B.call("monitor:checkNow")); }
@@ -196,7 +203,29 @@ B.SHORTCUTS = [
   ["Ctrl + L", "Lancer Roblox"],
   ["Ctrl + R ou F5", "Vérifier maintenant"],
   ["Ctrl + ,", "Ouvrir les réglages"],
+  ["Ctrl + K", "Rechercher un ami, un jeu, une page ou un réglage"],
+  ["Ctrl + Maj + S", "Activer / couper le mode streamer"],
+  ["Ctrl + Maj + M", "Ouvrir / fermer la mini-fenêtre « Amis en ligne »"],
   ["Ctrl + + / Ctrl + −", "Agrandir / réduire l'interface"],
   ["Ctrl + 0", "Taille normale (100 %)"],
   ["Échap", "Passer l'intro, fermer une fenêtre ou un menu"]
 ];
+
+// ---------- Boutons de la barre du haut : recherche, mode streamer, mini-fenêtre ----------
+B.initTopButtons = () => {
+  const sb = B.$("#streamer-btn"), mb = B.$("#mini-btn"), qb = B.$("#search-btn");
+  if (sb) { sb.append(B.glyph("eyeoff")); sb.onclick = async () => { const on = !B.S.settings.appearance.streamer; await B.set({ appearance: { streamer: on } }); B.toast(on ? "Mode streamer activé : pseudos, avatars et identifiants sont masqués." : "Mode streamer désactivé.", "ok"); }; }
+  if (mb) { mb.append(B.glyph("mini")); mb.onclick = () => B.run(() => B.call("mini:toggle")); }
+  if (qb) qb.onclick = () => B.search && B.search.open();
+};
+
+// ---------- Cache : une donnée servie depuis le cache vient d'être rafraîchie en arrière-plan ----------
+// La page affichée se redessine avec la nouvelle valeur (déjà en cache côté moteur : aucune nouvelle attente réseau).
+B.onRefreshed = (what) => {
+  if (B.isMini) return;
+  const pg = B.page;
+  if ((what === "details" || what === "counts") && pg === "profile" && B.pages.profile.loadDetails) B.pages.profile.loadDetails(true);
+  else if (what === "trend" && pg === "home" && B.pages.home.trend) { B.pages.home.trend.ts = 0; B.pages.home.fillTrend(false); }
+  else if (what === "discover" && pg === "discover" && B.pages.discover.loadHome) B.pages.discover.loadHome(false);
+  else if (what === "chat" && pg === "messages" && B.pages.messages.loadList) B.pages.messages.loadList(true);
+};

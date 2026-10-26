@@ -31,6 +31,9 @@ B.pages.notifs = {
         h("input", { type: "time", value: N.quiet.to, "aria-label": "Fin", onchange: (e) => setv(["notifications", "quiet", "to"], e.target.value) })))));
     p.append(h("div", { class: "card" }, h("h2", {}, "Pendant que je joue"),
       B.row("Silence pendant que je joue", "Les notifications Windows sont retenues tant que tu es en jeu, puis une seule notification te résume tout à la fin de la partie. Discord et ntfy continuent normalement. Nécessite « Afficher mon propre statut » (Réglages → Monitoring).", sw(["notifications", "quietInGame"], "Silence pendant que je joue"))));
+    p.append(h("div", { class: "card" }, h("h2", {}, "Groupes d'amis"),
+      B.row("Connexions seulement pour mes groupes", "Les connexions et déconnexions ne sont notifiées que pour les amis d'un groupe où « Connexions » est coché (par exemple « Proches »). Les autres événements ne changent pas. Un groupe en « Sourdine » ne notifie plus rien.", sw(["notifications", "groupConnOnly"], "Connexions seulement pour mes groupes")),
+      B.row("Groupes", "Crée tes groupes ici, puis range tes amis avec le bouton Fiche (📝) de la page Amis.", h("button", { class: "btn", onclick: () => B.people.manage() }, "⚙ Gérer les groupes"))));
     p.append(this.alertsCard());
     p.append(this.digestCard());
   },
@@ -118,9 +121,9 @@ B.pages.discord = {
   async state() {
     const s = await B.run(() => B.call("rpc:state")); const el = B.$("#rpc-state"); if (!el || !s) return;
     const on = B.S.settings.discordRpc.enabled;
-    el.textContent = s.error ? "⚠ " + s.error
+    el.textContent = B.tr(s.error ? "⚠ " + s.error
       : s.ready ? (s.playing ? "● Connecté à Discord — présence affichée" : "● Connecté à Discord — la présence s'affichera dès que Roblox sera ouvert")
-      : on ? (s.connecting ? "Connexion à Discord…" : "En attente de Discord…") : "Désactivé";
+      : on ? (s.connecting ? "Connexion à Discord…" : "En attente de Discord…") : "Désactivé");
     clearTimeout(this._t); if (on) this._t = setTimeout(() => B.page === "discord" && this.state(), s.ready ? 8000 : 3000);
   }
 };
@@ -134,10 +137,13 @@ B.pages.settings = {
     p.append(h("div", { class: "card" }, h("h2", {}, "Apparence"),
       B.row("Thème", "Auto suit le thème de Windows. Batcave, Joker, Batman : thèmes sombres ; Inde : thème clair safran, blanc et vert.", h("select", { "aria-label": "Thème", onchange: (e) => setv(["appearance", "theme"], e.target.value) },
         [["auto", "Automatique"], ["light", "Clair"], ["dark", "Sombre"], ["bat", "Batcave Neon"], ["joker", "Joker"], ["batman", "Batman"], ["inde", "Inde"]].map(([v, l]) => h("option", { value: v, selected: A.theme === v }, l)))),
+      B.row("Langue", "Langue de l'interface. Le changement recharge la fenêtre.", h("select", { "aria-label": "Langue", onchange: async (e) => { await setv(["appearance", "lang"], e.target.value); B.call("app:reloadUI"); } },
+        [["fr", "Français"], ["en", "English"]].map(([v, l]) => h("option", { value: v, selected: (A.lang || "fr") === v }, l)))),
       B.row("Couleur d'accent", "Boutons, liens et éléments actifs des thèmes Clair, Sombre et Automatique. Les autres thèmes gardent leurs couleurs.", this.accentPicker()),
       B.row("Taille de l'interface", "Agrandit ou réduit tout le texte et les éléments. Raccourcis : Ctrl + + / Ctrl + − / Ctrl + 0.", this.zoomPicker()),
       B.row("Page d'ouverture", "La page affichée quand Batblox s'ouvre.", h("select", { "aria-label": "Page d'ouverture", onchange: (e) => setv(["appearance", "startPage"], e.target.value) },
         [["home", "Accueil"], ["discover", "Découvrir"], ["profile", "Mon profil"], ["activity", "Activité"], ["messages", "Messages"], ["roblox", "Roblox"]].map(([v, l]) => h("option", { value: v, selected: (A.startPage || "home") === v }, l)))),
+      B.row("Mode streamer", "Masque à l'écran les pseudos, avatars, identifiants et messages, et rend les notifications Windows anonymes. Pratique pour partager ton écran ou faire un live. Raccourci : Ctrl + Maj + S, ou l'icône en haut.", sw(["appearance", "streamer"], "Mode streamer")),
       B.row("Intro vidéo au démarrage", "La courte animation jouée à l'ouverture de Batblox. Tu peux aussi la passer d'un clic ou avec Échap.", sw(["appearance", "intro"], "Intro vidéo")),
       B.row("Mode potato", "Aucun effet ni animation : pour les ordinateurs anciens. Tout fonctionne pareil.", sw(["appearance", "potato"], "Mode potato")),
       B.row("Animations", null, sw(["appearance", "animations"], "Animations")),
@@ -178,11 +184,17 @@ B.pages.settings = {
     p.append(h("div", { class: "card" }, h("h2", {}, "Système"),
       B.row("Réduire dans la zone de notification à la fermeture", "Batblox continue la surveillance en arrière-plan.", sw(["system", "trayOnClose"], "Zone de notification")),
       B.row("Lancer Batblox au démarrage de Windows", null, sw(["system", "launchAtStartup"], "Démarrage")),
-      B.row("Démarrer réduit", "Au démarrage de Windows, Batblox reste dans la zone de notification.", sw(["system", "startMinimized"], "Démarrer réduit"))));
+      B.row("Démarrer réduit", "Au démarrage de Windows, Batblox reste dans la zone de notification.", sw(["system", "startMinimized"], "Démarrer réduit")),
+      B.row("Mini-fenêtre « Amis en ligne »", "Une petite fenêtre avec tes amis en ligne et un bouton Rejoindre. Aussi depuis l'icône de la zone de notification ou Ctrl + Maj + M.", h("button", { class: "btn", onclick: () => B.run(() => B.call("mini:toggle", true)) }, "Ouvrir")),
+      B.row("Mini-fenêtre toujours au premier plan", "Elle reste visible par-dessus les autres fenêtres, y compris Roblox en mode fenêtré.", sw(["system", "miniOnTop"], "Mini-fenêtre au premier plan")),
+      B.row("Nouveautés de cette version", null, h("button", { class: "btn", onclick: () => B.whatsNew(true) }, "✨ Quoi de neuf")),
+      B.row("Signaler un problème", "Prépare un rapport (version, système, réglages et journal) sans aucune information de connexion, à copier ou enregistrer.", h("button", { class: "btn", onclick: () => B.report() }, "🐞 Préparer un rapport")),
+      B.row("Guide de démarrage", "Les trois écrans du premier lancement : compte, apparence, notifications.", h("button", { class: "btn", onclick: () => B.onboarding() }, "Revoir le guide"))));
     p.append(h("div", { class: "card" }, h("h2", {}, "Données"),
       B.row("Exporter", "Historique, profils suivis, statistiques et réglages. Aucune information de connexion Roblox ni adresse de webhook n'est incluse.", h("button", { class: "btn", onclick: async () => { const f = await B.run(() => B.call("data:export")); if (f) B.toast("Sauvegarde enregistrée : " + f, "ok"); } }, "Exporter")),
       B.row("Importer", "Fichier Batblox ou sauvegarde de l'ancienne extension.", h("div", { class: "row" },
         h("button", { class: "btn", onclick: () => this.imp("merge") }, "Fusionner"), h("button", { class: "btn", onclick: async () => { if (await B.confirm("Remplacer l'historique, les profils suivis et les statistiques par ceux du fichier ?", "Remplacer", true)) this.imp("replace"); } }, "Remplacer"))),
+      this.cacheRow(),
       B.row("Export CSV de l'historique", null, h("button", { class: "btn", onclick: async () => { const f = await B.run(() => B.call("history:csv")); if (f) B.toast("Exporté : " + f, "ok"); } }, "Exporter en CSV")),
       B.row("Effacer l'historique", null, h("button", { class: "btn bad", onclick: async () => { if (await B.confirm("Effacer tout l'historique ?", "Effacer", true)) { await B.run(() => B.call("history:clear")); B.toast("Historique effacé.", "ok"); } } }, "Effacer")),
       B.row("Réinitialiser Batblox", "Remet les réglages par défaut et efface historique, profils suivis et statistiques. Les comptes sont conservés.", h("button", { class: "btn bad", onclick: async () => { if (await B.confirm("Tout réinitialiser ? Cette action est définitive.", "Réinitialiser", true)) { await B.run(() => B.call("data:reset")); B.toast("Batblox a été réinitialisé.", "ok"); B.renderPage(); } } }, "Réinitialiser"))));
@@ -190,6 +202,18 @@ B.pages.settings = {
     p.append(h("div", { class: "card" }, h("h2", {}, "Raccourcis clavier"),
       h("div", { class: "kbd-list" }, B.SHORTCUTS.map(([k, d]) => h("div", { class: "kbd-row" }, h("span", { class: "kbd-keys" }, k.split(" ou ").map((part, i) => [i ? h("span", { class: "muted small" }, " ou ") : null, part.split(" / ").map((combo, j) => [j ? h("span", { class: "muted" }, " / ") : null, h("kbd", {}, combo)])])), h("span", { class: "muted" }, d))))));
     this.sectionBar(p);
+  },
+  // Cache de Batblox : taille, taux de réussite, bouton pour vider (les données se rechargent toutes seules).
+  cacheRow() {
+    const info = h("small", {}, "…");
+    const lbl = h("div", { class: "lbl" }, "Cache de Batblox", h("small", {}, "Avatars, icônes de jeux et listes de jeux gardés sur ce PC pour afficher les pages tout de suite, même au démarrage. Aucune donnée de connexion. Le vider ne supprime rien d'important : tout se recharge au besoin."), info);
+    const draw = async () => {
+      const c = await B.call("cache:info").catch(() => null);
+      if (!c) { info.textContent = ""; return; }
+      info.textContent = B.tr(c.entries + " élément(s) en mémoire, " + c.disk + " sur le disque (" + B.bytes(c.bytes) + ")" + (c.hitRate != null ? " · " + c.hitRate + " % des demandes servies sans attendre Roblox" : ""));
+    };
+    draw();
+    return h("div", { class: "field-row" }, lbl, h("button", { class: "btn", onclick: async () => { const n = await B.run(() => B.call("cache:clear")); if (n != null) { B.toast("Cache vidé.", "ok"); draw(); } } }, "Vider le cache"));
   },
   accentPicker() {
     const A = B.S.settings.appearance;
@@ -219,7 +243,7 @@ B.pages.settings = {
     const draw = (st) => {
       const Bk = B.S.settings.backup;
       const stTxt = !st ? "…" : st.error ? "⚠ Dernier essai échoué : " + st.error
-        : st.lastAt ? "Dernière sauvegarde : " + new Date(st.lastAt).toLocaleString("fr-FR", { dateStyle: "medium", timeStyle: "short" }) + (Bk.enabled && st.nextAt ? " · prochaine : " + new Date(st.nextAt).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" }) : "")
+        : st.lastAt ? "Dernière sauvegarde : " + new Date(st.lastAt).toLocaleString(B.loc(), { dateStyle: "medium", timeStyle: "short" }) + (Bk.enabled && st.nextAt ? " · prochaine : " + new Date(st.nextAt).toLocaleDateString(B.loc(), { weekday: "long", day: "numeric", month: "long" }) : "")
         : "Aucune sauvegarde automatique pour le moment.";
       B.clear(card).append(h("h2", {}, "Sauvegarde automatique"),
         B.row("Sauvegarder chaque semaine", "Même contenu que « Exporter » : historique, profils suivis, statistiques, temps de jeu et réglages. Jamais d'information de connexion Roblox.", sw(["backup", "enabled"], "Sauvegarde automatique")),
@@ -250,7 +274,11 @@ B.pages.settings = {
     const view = B.$("#view");
     const mark = () => {
       if (!bar.isConnected) { view.removeEventListener("scroll", mark); return; }
-      const top = view.getBoundingClientRect().top + 90;
+      const vt = view.getBoundingClientRect().top;
+      // Collée en haut ? (la position « sticky » se compte depuis la marge intérieure de la zone de contenu) : fond seulement dans ce cas
+      const stick = vt + (parseFloat(getComputedStyle(view).paddingTop) || 0) + (parseFloat(getComputedStyle(bar).top) || 0);
+      bar.classList.toggle("stuck", view.scrollTop > 0 && bar.getBoundingClientRect().top <= stick + 1);
+      const top = vt + 90;
       let cur = 0;
       cards.forEach((c, i) => { if (c.getBoundingClientRect().top <= top) cur = i; });
       if (view.scrollTop + view.clientHeight >= view.scrollHeight - 4) cur = cards.length - 1;
@@ -266,23 +294,23 @@ B.pages.settings = {
     const draw = (st) => {
       const L = st && st.latest;
       btn.disabled = !!(st && st.busy);
-      if (!st) { info.textContent = ""; return; }
-      if (st.busy) { btn.textContent = "Téléchargement…" + (st.progress ? " " + st.progress + " %" : ""); info.textContent = "Ne ferme pas Batblox : l'installeur se lancera tout seul."; return; }
-      if (st.error) { btn.textContent = "Vérifier les mises à jour"; info.textContent = "⚠ " + st.error; return; }
+      if (!st) { info.textContent = B.tr(""); return; }
+      if (st.busy) { btn.textContent = B.tr("Téléchargement…" + (st.progress ? " " + st.progress + " %" : "")); info.textContent = B.tr("Ne ferme pas Batblox : l'installeur se lancera tout seul."); return; }
+      if (st.error) { btn.textContent = B.tr("Vérifier les mises à jour"); info.textContent = B.tr("⚠ " + st.error); return; }
       if (st.available && L) {
-        btn.textContent = st.portable || !L.installer ? "Ouvrir la page de téléchargement" : "Mettre à jour vers v" + L.version;
-        info.textContent = "Nouvelle version disponible : v" + L.version + (L.notes ? "\n\n" + L.notes : "") + (st.portable ? "\n\nVersion portable : le fichier est à télécharger depuis GitHub." : "");
+        btn.textContent = B.tr(st.portable || !L.installer ? "Ouvrir la page de téléchargement" : "Mettre à jour vers v" + L.version);
+        info.textContent = B.tr("Nouvelle version disponible : v" + L.version + (L.notes ? "\n\n" + L.notes : "") + (st.portable ? "\n\nVersion portable : le fichier est à télécharger depuis GitHub." : ""));
         info.style.whiteSpace = "pre-wrap";
         return;
       }
-      btn.textContent = "Vérifier les mises à jour";
-      info.textContent = st.checkedAt ? "Batblox est à jour (v" + st.current + ")." : "";
+      btn.textContent = B.tr("Vérifier les mises à jour");
+      info.textContent = B.tr(st.checkedAt ? "Batblox est à jour (v" + st.current + ")." : "");
     };
     let cur = null;
     btn.onclick = async () => {
       if (cur && cur.available && cur.latest) {
         if (!cur.portable && cur.latest.installer && !(await B.confirm("Télécharger Batblox v" + cur.latest.version + " depuis GitHub puis l'installer ? Batblox va se fermer pendant l'installation. Tes comptes, réglages et historique sont conservés.", "Mettre à jour"))) return;
-        btn.disabled = true; btn.textContent = "Téléchargement…";
+        btn.disabled = true; btn.textContent = B.tr("Téléchargement…");
         const timer = setInterval(async () => { const s = await B.call("update:state").catch(() => null); if (s && s.busy) draw(s); }, 700);
         const r = await B.run(() => B.call("update:install"));
         clearInterval(timer);
@@ -291,7 +319,7 @@ B.pages.settings = {
         draw(await B.call("update:state").catch(() => cur));
         return;
       }
-      btn.disabled = true; btn.textContent = "Vérification…";
+      btn.disabled = true; btn.textContent = B.tr("Vérification…");
       const st = await B.run(() => B.call("update:check"));
       cur = st || cur; draw(cur);
       if (st && !st.error && !st.available) B.toast("Batblox est à jour.", "ok");

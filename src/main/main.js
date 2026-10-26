@@ -3,12 +3,12 @@ const path = require("path");
 const fs = require("fs");
 const { execFile } = require("child_process");
 const crypto = require("crypto");
-const { app, BrowserWindow, Tray, Menu, Notification, ipcMain, dialog, shell, session, safeStorage, nativeImage, nativeTheme, net } = require("electron");
+const { app, BrowserWindow, Tray, Menu, Notification, ipcMain, dialog, shell, session, safeStorage, nativeImage, nativeTheme, net, clipboard } = require("electron");
 
 const { Storage } = require("./core/storage");
 const { DEFAULT_SETTINGS, merge, DISCORD_RE, NTFY_TOPIC_RE, PROXY_DOMAIN_RE, trackPatch, START_PAGES, ACCENTS } = require("./core/defaults");
 const { makePublicFetch } = require("./core/publicnet");
-const { Vault } = require("./core/security");
+const { Vault, scrub } = require("./core/security");
 const { Logger } = require("./core/logger");
 const { AccountManager } = require("./core/accounts");
 const { Notifier } = require("./core/notifier");
@@ -23,6 +23,14 @@ const { Executor } = require("./core/executor");
 const { Updater } = require("./core/updater");
 const { PlayTime } = require("./core/playtime");
 const { Scheduler } = require("./core/scheduler");
+const { People } = require("./core/people");
+const { Cache } = require("./core/cache");
+const { makeTranslator } = require("../renderer/i18n-core");
+const trEN = makeTranslator(require("../renderer/i18n-en"));
+// Textes affichés par le processus principal (notifications Windows, zone de notification, boîtes de dialogue) dans la langue choisie.
+const T = (s) => (settings && settings.appearance && settings.appearance.lang === "en" ? trEN(s) : s);
+const { buildRecap, monthsWithData, recapText, recapCsv } = require("./core/recap");
+const os = require("os");
 
 const APP_ID = "app.batblox.desktop";
 const ROOT_URL = "https://www.roblox.com";
@@ -32,9 +40,8 @@ const INDEX = path.join(__dirname, "..", "renderer", "index.html");
 app.setAppUserModelId(APP_ID);
 if (!app.requestSingleInstanceLock()) { app.quit(); }
 
-let win = null, tray = null, quitting = false;
-let storage, logger, settings, accounts, notifier, monitor, launcher, maintenance, custom, data, rpc, vault, executor, updater, playtime, scheduler;
-const avatarCache = new Map();
+let win = null, mini = null, tray = null, quitting = false;
+let storage, logger, settings, accounts, notifier, monitor, launcher, maintenance, custom, data, rpc, vault, executor, updater, playtime, scheduler, people, cache;
 
 // ---------------------------------------------------------------- Réglages
 function getSettings() { return settings; }
@@ -59,12 +66,18 @@ function sanitize(next) {
   s.updates.checkOnStart = s.updates.checkOnStart !== false;
   if (!CLIENT_IDS.includes(s.launcher.client)) s.launcher.client = "auto";
   s.launcher.customExe = /^[A-Za-z]:\\[^\0]{1,250}\.exe$/i.test(String(s.launcher.customExe || "")) ? String(s.launcher.customExe) : "";
-  // v1.5.9 : options d'affichage, notifications, temps de jeu, sauvegarde
+  // v1.6.0 : options d'affichage, notifications, temps de jeu, sauvegarde
   s.appearance.intro = s.appearance.intro !== false;
   s.appearance.zoom = Math.min(130, Math.max(80, Math.round((Number(s.appearance.zoom) || 100) / 10) * 10));
   if (!START_PAGES.includes(s.appearance.startPage)) s.appearance.startPage = "home";
   if (!ACCENTS.includes(s.appearance.accent)) s.appearance.accent = "bleu";
   s.notifications.quietInGame = !!s.notifications.quietInGame;
+  s.notifications.groupConnOnly = !!s.notifications.groupConnOnly;
+  s.appearance.streamer = !!s.appearance.streamer;
+  if (!["fr", "en"].includes(s.appearance.lang)) s.appearance.lang = "fr";
+  s.system.miniOnTop = s.system.miniOnTop !== false;
+  s.ui.seenVersion = /^\d+\.\d+\.\d+$/.test(String(s.ui.seenVersion || "")) ? String(s.ui.seenVersion) : "";
+  s.ui.onboarded = !!s.ui.onboarded;
   { const seen = new Set(); // sans doublon, majuscules ignorées
     s.notifications.gameAlerts = (Array.isArray(s.notifications.gameAlerts) ? s.notifications.gameAlerts : [])
       .map((x) => String(x == null ? "" : x).replace(/[\u0000-\u001f]/g, "").trim().slice(0, 60))
@@ -191,6 +204,9 @@ function loginViaWindow() {
 // ---------------------------------------------------------------- Notifications Windows
 function desktopNotify(title, body, { sound, join, page } = {}) {
   if (!Notification.isSupported()) return;
+  // Mode streamer : la notification s'affiche à l'écran (donc dans le live) : aucun pseudo ni nom de jeu, seulement le type d'alerte.
+  if (settings.appearance.streamer) { title = "🦇 Batblox : nouvelle alerte"; body = "Ouvre Batblox pour voir le détail (mode streamer actif)."; }
+  title = T(title); body = T(body);
   const n = new Notification({ title, body, icon: ICON, silent: !sound });
   // join : alerte « jeu surveillé » → un clic rejoint l'ami dans son jeu (même chemin que le bouton « Rejoindre »).
   n.on("click", () => {
@@ -236,6 +252,9 @@ function createWindow(hidden) {
     const k = String(input.key || "").toLowerCase();
     if (/^[1-9]$/.test(k) && !input.shift) { e.preventDefault(); send("shortcut", "nav" + k); }
     else if (k === "l" && !input.shift) { e.preventDefault(); send("shortcut", "launch"); }
+    else if (k === "k" && !input.shift) { e.preventDefault(); send("shortcut", "search"); }
+    else if (k === "s" && input.shift) { e.preventDefault(); api["settings:set"]({ appearance: { streamer: !settings.appearance.streamer } }); }
+    else if (k === "m" && input.shift) { e.preventDefault(); toggleMini(); }
     else if (k === "r") { e.preventDefault(); send("shortcut", "check"); }
     else if (k === ",") { e.preventDefault(); send("shortcut", "settings"); }
     else if (k === "=" || k === "+" || k === "add") { e.preventDefault(); setZoom(settings.appearance.zoom + 10); }
@@ -261,28 +280,89 @@ function setZoom(z) {
   api["settings:set"]({ appearance: { zoom: z } });
 }
 function showWindow() { if (!win) createWindow(false); if (win.isMinimized()) win.restore(); win.show(); win.focus(); }
-function send(evt, payload) { if (win && !win.isDestroyed()) win.webContents.send("evt", evt, payload); }
+function send(evt, payload) {
+  if (win && !win.isDestroyed()) win.webContents.send("evt", evt, payload);
+  if (mini && !mini.isDestroyed()) mini.webContents.send("evt", evt, payload); // la mini-fenêtre suit les mêmes événements
+}
+
+// ---------------------------------------------------------------- Mini-fenêtre « Amis en ligne »
+// Petite fenêtre compacte (toujours au premier plan par défaut) : amis en ligne + bouton Rejoindre. Position et taille mémorisées.
+function toggleMini(force) {
+  if (mini && !mini.isDestroyed()) { if (force === true) { mini.show(); mini.focus(); return true; } mini.close(); return false; }
+  if (force === false) return false;
+  const saved = storage.get("ui-state", () => ({})) || {};
+  const b = saved.mini || {};
+  mini = new BrowserWindow({
+    width: b.width || 320, height: b.height || 480, x: b.x, y: b.y, minWidth: 260, minHeight: 300, show: false, frame: false, resizable: true, maximizable: false, fullscreenable: false,
+    title: "Batblox — Amis en ligne", icon: ICON, backgroundColor: windowBg(), alwaysOnTop: settings.system.miniOnTop,
+    webPreferences: { preload: path.join(__dirname, "preload.js"), contextIsolation: true, sandbox: true, nodeIntegration: false, spellcheck: false }
+  });
+  mini.setMenuBarVisibility(false);
+  mini.loadFile(INDEX, { query: { mini: "1" } });
+  mini.once("ready-to-show", () => { if (mini && !mini.isDestroyed()) mini.show(); });
+  mini.webContents.on("did-finish-load", () => { if (mini && !mini.isDestroyed()) mini.webContents.setZoomFactor((settings.appearance.zoom || 100) / 100); });
+  mini.webContents.setWindowOpenHandler(({ url }) => { openSafe(url); return { action: "deny" }; });
+  mini.webContents.on("will-navigate", (e, url) => { if (!url.startsWith("file://")) { e.preventDefault(); openSafe(url); } });
+  const remember = () => { if (!mini || mini.isDestroyed()) return; const st = storage.get("ui-state", () => ({})) || {}; st.mini = mini.getBounds(); storage.set("ui-state", st); };
+  mini.on("moved", remember); mini.on("resized", remember);
+  mini.on("closed", () => { mini = null; refreshTray(); });
+  refreshTray();
+  return true;
+}
 function openSafe(url) { if (/^https:\/\/([\w-]+\.)?(roblox\.com|discord\.com|ntfy\.sh|github\.com)\//i.test(url)) shell.openExternal(url); }
+
+// ---------------------------------------------------------------- Rapport « Signaler un problème »
+// Ne contient JAMAIS : session Roblox, adresse de webhook, sujet ntfy, dossier de sauvegarde, pseudos des comptes, notes d'amis.
+function buildReport() {
+  const home = os.homedir();
+  const clean = (t) => scrub(String(t == null ? "" : t)).split(home).join("%USERPROFILE%").replace(/https:\/\/(?:[\w-]+\.)?discord(?:app)?\.com\/api\/webhooks\/\S+/gi, "[webhook masqué]");
+  const s = JSON.parse(JSON.stringify(settings));
+  s.notifications.discord.url = s.notifications.discord.url ? "[configuré]" : "";
+  s.notifications.ntfy.topic = s.notifications.ntfy.topic ? "[configuré]" : "";
+  s.backup.dir = s.backup.dir ? "[configuré]" : "";
+  s.launcher.customExe = s.launcher.customExe ? "[configuré]" : "";
+  s.discordRpc.clientId = s.discordRpc.clientId ? "[configuré]" : "";
+  s.monitoring.favorites = (s.monitoring.favorites || []).length + " élément(s)";
+  s.monitoring.gameOnly = (s.monitoring.gameOnly || []).length + " élément(s)";
+  const snap = monitor.snapshot();
+  const accs = accounts.list();
+  const L = [];
+  L.push("=== Rapport Batblox ===", "Créé le : " + new Date().toISOString(), "");
+  L.push("Batblox " + app.getVersion() + (app.isPackaged ? "" : " (mode développement)") + (process.env.PORTABLE_EXECUTABLE_FILE ? " — portable" : ""));
+  L.push(`Electron ${process.versions.electron} · Chromium ${process.versions.chrome} · Node ${process.versions.node}`);
+  L.push(`Système : ${os.type()} ${os.release()} (${process.arch}) · ${Math.round(os.totalmem() / 1073741824)} Go de mémoire · langue ${app.getLocale()}`);
+  L.push(`Chiffrement Windows : ${vault.available() ? "disponible" : "INDISPONIBLE"}`);
+  L.push("", "--- État ---");
+  L.push(`Comptes : ${accs.length} (états : ${accs.map((a) => a.status).join(", ") || "aucun"})`);
+  L.push(`Monitoring : ${snap.paused ? "en pause" : "actif"} · dernière vérification ${snap.lastRun ? new Date(snap.lastRun).toISOString() : "jamais"}${snap.error ? " · erreur : " + clean(snap.error) : ""}`);
+  L.push(`Amis : ${snap.friends == null ? "?" : snap.friends} · profils suivis : ${snap.watched} · historique : ${monitor.history.entries.length} événement(s)`);
+  try { const u = updater.state(); L.push(`Mises à jour : ${u.latest ? "dernière " + u.latest.version : "non vérifiées"}${u.error ? " · erreur : " + clean(u.error) : ""}`); } catch (_) {}
+  L.push("", "--- Réglages (secrets retirés) ---", clean(JSON.stringify(s, null, 1)));
+  L.push("", "--- Journal (250 dernières lignes, nettoyées) ---", ...logger.tail(250).map(clean));
+  return L.join("\n");
+}
 
 // ---------------------------------------------------------------- Zone de notification (System Tray)
 function buildTrayMenu() {
   const snap = monitor.snapshot();
   const acc = accounts.active();
-  const mon = snap.paused ? "⏸ Monitoring en pause" : snap.error ? "⚠ " + snap.error : "● Monitoring actif";
-  const rob = snap.me ? (snap.me.status === "jeu" ? "Roblox : En jeu" : snap.me.status === "en_ligne" ? "Roblox : En ligne" : "Roblox : Hors ligne") : "Roblox : —";
+  const mon = T(snap.paused ? "⏸ Monitoring en pause" : snap.error ? "⚠ " + snap.error : "● Monitoring actif");
+  const rob = T(snap.me ? (snap.me.status === "jeu" ? "Roblox : En jeu" : snap.me.status === "en_ligne" ? "Roblox : En ligne" : "Roblox : Hors ligne") : "Roblox : —");
   return Menu.buildFromTemplate([
-    { label: "🦇 Batblox", enabled: false },
+    { label: T("🦇 Batblox"), enabled: false },
     { label: mon, enabled: false },
     { label: rob, enabled: false },
-    { label: "Compte : " + (acc ? acc.label : "aucun"), enabled: false },
-    { label: `${snap.watched} profil(s) suivi(s)`, enabled: false },
+    { label: T("Compte : ") + (acc ? (settings.appearance.streamer ? T("masqué (mode streamer)") : acc.label) : T("aucun")), enabled: false },
+    { label: snap.watched + T(" profil(s) suivi(s)"), enabled: false },
     { type: "separator" },
-    { label: "Ouvrir Batblox", click: showWindow },
-    { label: "Vérifier maintenant", click: () => monitor.checkAll({ force: true }) },
-    { label: snap.paused ? "Reprendre le monitoring" : "Mettre le monitoring en pause", click: () => toggleMonitoring() },
-    { label: "Lancer Roblox", click: () => { showWindow(); send("launch"); } },
+    { label: T("Ouvrir Batblox"), click: showWindow },
+    { label: T(mini ? "Fermer la mini-fenêtre" : "Amis en ligne (mini-fenêtre)"), click: () => toggleMini() },
+    { label: T("Mode streamer"), type: "checkbox", checked: !!settings.appearance.streamer, click: () => api["settings:set"]({ appearance: { streamer: !settings.appearance.streamer } }) },
+    { label: T("Vérifier maintenant"), click: () => monitor.checkAll({ force: true }) },
+    { label: T(snap.paused ? "Reprendre le monitoring" : "Mettre le monitoring en pause"), click: () => toggleMonitoring() },
+    { label: T("Lancer Roblox"), click: () => { showWindow(); send("launch"); } },
     { type: "separator" },
-    { label: "Quitter", click: () => { quitting = true; app.quit(); } }
+    { label: T("Quitter"), click: () => { quitting = true; app.quit(); } }
   ]);
 }
 function createTray() {
@@ -292,7 +372,7 @@ function createTray() {
   tray.on("click", showWindow);
   refreshTray();
 }
-function refreshTray() { if (tray) { tray.setContextMenu(buildTrayMenu()); const s = monitor.snapshot(); tray.setToolTip(s.paused ? "Batblox — en pause" : "Batblox — monitoring actif"); } }
+function refreshTray() { if (tray) { tray.setContextMenu(buildTrayMenu()); const s = monitor.snapshot(); tray.setToolTip(T(s.paused ? "Batblox — en pause" : "Batblox — monitoring actif")); } }
 function toggleMonitoring() {
   const next = JSON.parse(JSON.stringify(settings));
   next.monitoring.enabled = !next.monitoring.enabled;
@@ -302,20 +382,28 @@ function toggleMonitoring() {
 }
 
 // ---------------------------------------------------------------- Avatars
+// Avatars : gardés sur le disque (une photo de profil change rarement). Frais 6 h, utilisables 7 jours (rafraîchis en arrière-plan) :
+// au démarrage, tous les avatars déjà vus s'affichent sans aucune requête.
+const AVATAR_TTL = 6 * 3600000, AVATAR_STALE = 7 * 86400000;
 async function avatarsFor(ids) {
-  const out = {};
-  const need = [];
-  const now = Date.now();
-  for (const id of ids.map(String).filter((x) => /^\d+$/.test(x)).slice(0, 200)) {
-    const c = avatarCache.get(id);
-    if (c && now - c.ts < (c.url ? 3600000 : 120000)) { if (c.url) out[id] = c.url; } else need.push(id);
-  }
+  const list = [...new Set(ids.map(String).filter((x) => /^\d+$/.test(x)))].slice(0, 200);
   const client = accounts.activeClient();
-  if (need.length && client && !client.isLimited("thumbnails.roblox.com")) {
-    const got = await client.avatars(need);
-    for (const id of need) { avatarCache.set(id, { url: got[id] || null, ts: now }); if (got[id]) out[id] = got[id]; }
-  }
-  return out;
+  const fetchMany = (need) => (client && !client.isLimited("thumbnails.roblox.com") ? client.avatars(need) : Promise.resolve({}));
+  return cache.many("avatar:", list, fetchMany, { ttl: AVATAR_TTL, stale: AVATAR_STALE });
+}
+
+// Les 4 compteurs du compte, demandés à Roblox (à défaut : valeurs du monitoring).
+async function fetchCounts(c, id) {
+  limitedErr(c, "friends.roblox.com");
+  const snap = monitor.snapshot() || {};
+  const [friends, followers, following, requests] = await Promise.all([
+    `https://friends.roblox.com/v1/users/${id}/friends/count`, `https://friends.roblox.com/v1/users/${id}/followers/count`,
+    `https://friends.roblox.com/v1/users/${id}/followings/count`, "https://friends.roblox.com/v1/user/friend-requests/count"
+  ].map((u) => c.countOf(u).catch(() => null)));
+  return {
+    friends: friends != null ? friends : snap.friends, followers: followers != null ? followers : snap.followers,
+    following: following != null ? following : snap.following, requests: requests != null ? requests : snap.requests
+  };
 }
 
 // ---------------------------------------------------------------- Données calculées pour l'interface
@@ -432,22 +520,19 @@ let discoverCache = null;
 const SORT_FR = [[/^popular|top ?playing/i, "Populaires en ce moment"], [/top ?rated|toprated/i, "Les mieux notés"], [/up ?and ?coming|trending/i, "Tendances"], [/most ?favorited/i, "Les plus ajoutés en favoris"], [/featured/i, "À la une"], [/revisited|top ?revisited/i, "Jeux auxquels on revient"]];
 const SORT_SKIP = /friend|continue|recent|favorites?$|my ?|sponsor|recommended.for|ad(s|vert)/i;
 
-// Cache d'icônes partagé (1 h) : une icône déjà vue n'est jamais redemandée à Roblox (Découvrir, Accueil, recherche, « Tout voir »).
-const iconCache = new Map();
-const ICON_TTL = 60 * 60 * 1000;
-function cachedIcon(pid) { const e = iconCache.get(String(pid)); return e && Date.now() - e.ts < ICON_TTL ? e.url : null; }
+// Icônes de jeux : cache partagé et gardé sur le disque (fraîches 24 h, utilisables 30 jours) : une icône déjà vue n'est jamais
+// redemandée à Roblox en attendant (Découvrir, Accueil, recherche, « Tout voir », temps de jeu, bilan).
+const ICON_TTL = 24 * 3600000, ICON_STALE = 30 * 86400000;
+function cachedIcon(pid) { const h = cache.peek("icon:" + pid); return h ? h.value : null; }
 async function iconsFor(c, pids) {
-  const ids = [...new Set((pids || []).map(String))];
-  const need = ids.filter((id) => !cachedIcon(id));
-  const chunks = [];
-  for (let i = 0; i < need.length; i += 100) chunks.push(need.slice(i, i + 100));
-  const parts = await Promise.all(chunks.map((ch) => c.placeIcons(ch))); // lots en parallèle (avant : l'un après l'autre)
-  const now = Date.now();
-  if (iconCache.size > 4000) iconCache.clear();
-  for (const part of parts) for (const [pid, url] of Object.entries(part || {})) iconCache.set(pid, { url, ts: now });
-  const out = {};
-  for (const id of ids) { const u = cachedIcon(id); if (u) out[id] = u; }
-  return out;
+  const ids = [...new Set((pids || []).map(String).filter((x) => /^\d+$/.test(x)))];
+  const fetchMany = async (need) => {
+    const chunks = [];
+    for (let i = 0; i < need.length; i += 100) chunks.push(need.slice(i, i + 100));
+    const parts = await Promise.all(chunks.map((ch) => c.placeIcons(ch))); // lots en parallèle
+    return Object.assign({}, ...parts);
+  };
+  return cache.many("icon:", ids, fetchMany, { ttl: ICON_TTL, stale: ICON_STALE });
 }
 // Version qui attend les icônes (Accueil).
 async function attachIcons(c, games) {
@@ -469,15 +554,17 @@ function discoverClient() {
   return c;
 }
 
-const DISCOVER_STALE_MAX = 60 * 60 * 1000; // une page un peu ancienne s'affiche tout de suite et se rafraîchit en arrière-plan
+const DISCOVER_STALE_MAX = 24 * 60 * 60 * 1000; // une page un peu ancienne s'affiche tout de suite et se rafraîchit en arrière-plan
 let discoverInflight = null;
 async function discoverGames(force) {
   const acc = accounts.activeId();
+  // Au démarrage : la dernière page Découvrir enregistrée sur le disque s'affiche tout de suite (puis se rafraîchit si elle est ancienne).
+  if (!discoverCache || discoverCache.acc !== acc) { const d = cache.peek("discover:" + acc); if (d) discoverCache = { acc, ts: Date.now() - d.age, data: d.value }; }
   const hit = discoverCache && discoverCache.acc === acc ? discoverCache : null;
   if (!force && hit) {
     const age = Date.now() - hit.ts;
     if (age < DISCOVER_TTL) return hit.data;
-    if (age < DISCOVER_STALE_MAX) { buildDiscover(acc).catch(() => {}); return hit.data; }
+    if (age < DISCOVER_STALE_MAX) { buildDiscover(acc).then(() => send("refreshed", "discover")).catch(() => {}); return hit.data; }
   }
   return buildDiscover(acc);
 }
@@ -531,15 +618,18 @@ async function loadDiscover(acc) {
   attachCachedIcons(sections.flatMap((s) => s.games)); // pas d'attente : le reste des icônes se charge après l'affichage
   const data = { ts: Date.now(), sections };
   discoverCache = { acc, ts: Date.now(), data };
+  cache.set("discover:" + acc, data, DISCOVER_TTL, 24 * 3600000);
   return data;
 }
 
 // Jeux en tendance pour l'accueil : 3 classements officiels (populaires, tendances, mieux notés), mis en cache comme « Découvrir ».
-let trendCache = null;
 const TREND_ORDER = [/popular|top ?playing/i, /up ?and ?coming|trending/i, /top ?rated|toprated/i];
-async function trendingGames(force) {
+// Tendances de l'accueil : sur le disque (fraîches 10 min, utilisables 24 h). Au démarrage, l'accueil affiche les dernières tout de suite.
+function trendingGames(force) {
   const acc = accounts.activeId();
-  if (!force && trendCache && trendCache.acc === acc && Date.now() - trendCache.ts < DISCOVER_TTL) return trendCache.data;
+  return cache.wrap("trend:" + acc, () => loadTrending(), { ttl: DISCOVER_TTL, stale: 24 * 3600000, force, onRefresh: () => send("refreshed", "trend") });
+}
+async function loadTrending() {
   const c = discoverClient();
   const key = (s) => s.name + " " + s.title;
   const sorts = (await c.gameSorts()).filter((s) => !SORT_SKIP.test(key(s)));
@@ -557,9 +647,7 @@ async function trendingGames(force) {
   }))).filter(Boolean);
   if (!sections.length) throw new Error("Roblox n'a renvoyé aucun jeu en tendance pour le moment" + (lastErr ? " (" + String(lastErr.message).slice(0, 100) + ")" : "") + ". Réessaie plus tard.");
   await attachIcons(c, sections.flatMap((s) => s.games));
-  const data = { ts: Date.now(), sections };
-  trendCache = { acc, ts: Date.now(), data };
-  return data;
+  return { ts: Date.now(), sections };
 }
 
 // ---------------------------------------------------------------- Chat Roblox (page « Messages »)
@@ -591,7 +679,9 @@ const api = {
     // Listes : remplacées en entier (la fusion profonde garderait sinon les anciens éléments)
     if (patch && patch.notifications && Array.isArray(patch.notifications.gameAlerts)) settings.notifications.gameAlerts = [];
     setSettings(sanitize(merge(settings, patch)));
-    if (before.appearance.zoom !== settings.appearance.zoom) applyZoom();
+    if (before.appearance.zoom !== settings.appearance.zoom) { applyZoom(); if (mini && !mini.isDestroyed()) mini.webContents.setZoomFactor(settings.appearance.zoom / 100); }
+    if (mini && !mini.isDestroyed() && before.system.miniOnTop !== settings.system.miniOnTop) mini.setAlwaysOnTop(settings.system.miniOnTop);
+    if (mini && !mini.isDestroyed() && before.appearance.theme !== settings.appearance.theme) mini.setBackgroundColor(windowBg());
     app.setLoginItemSettings({ openAtLogin: !!settings.system.launchAtStartup, args: ["--cache"] });
     if (before.monitoring.intervalSec !== settings.monitoring.intervalSec || before.monitoring.enabled !== settings.monitoring.enabled) monitor.kick(800);
     rpc.sync().then(() => send("rpc", rpc.state())).catch(() => {});
@@ -610,11 +700,12 @@ const api = {
   "avatars": (ids) => avatarsFor(ids || []),
   "gameicons": async (ids) => { const c = accounts.activeClient(); return c && !c.isLimited("thumbnails.roblox.com") ? iconsFor(c, (ids || []).slice(0, 120)) : {}; },
 
-  "chat:unread": () => chatCall(async (c) => ({ unread: await c.chatUnread() })),
-  "chat:list": (p) => chatCall((c, me) => c.chatConversations(me, String((p && p.cursor) || "").slice(0, 400))),
+  "chat:unread": () => cache.wrap("chatu:" + accounts.activeId(), () => chatCall(async (c) => ({ unread: await c.chatUnread() })), { ttl: 20000, stale: 20000 }),
+  // Conversations : la liste s'affiche tout de suite (15 s), puis se met à jour en arrière-plan ; un envoi ou une lecture l'invalide.
+  "chat:list": (p) => { const cur = String((p && p.cursor) || "").slice(0, 400); return cache.wrap("chat:" + accounts.activeId() + ":" + cur, () => chatCall((c, me) => c.chatConversations(me, cur)), { ttl: 15000, stale: 5 * 60000, force: !!(p && p.force), onRefresh: () => send("refreshed", "chat") }); },
   "chat:messages": (p) => chatCall((c, me) => c.chatMessages(me, p && p.id, String((p && p.cursor) || "").slice(0, 400))),
-  "chat:send": (p) => chatCall((c, me) => c.chatSend(me, p && p.id, p && p.text)),
-  "chat:read": (id) => chatCall((c) => c.chatMarkRead(id)),
+  "chat:send": (p) => { cache.drop("chat:"); cache.drop("chatu:"); return chatCall((c, me) => c.chatSend(me, p && p.id, p && p.text)); },
+  "chat:read": (id) => { cache.drop("chat:"); cache.drop("chatu:"); return chatCall((c) => c.chatMarkRead(id)); },
 
   "discover:games": (p) => discoverGames(!!(p && p.force)),
   "discover:trending": (p) => trendingGames(!!(p && p.force)),
@@ -633,31 +724,31 @@ const api = {
 
   // Page « Mon profil » : détails du compte actif, listes (abonnés, abonnements, demandes) et réponse aux demandes.
   // Détails du compte : tout part en parallèle (services différents) et les compteurs de « amis » (service le plus lent) sont chargés à part.
-  "account:details": async () => {
+  // Détails du profil : en mémoire seulement (contient les Robux), frais 5 min, servis puis rafraîchis jusqu'à 6 h.
+  "account:details": async (p) => {
     const acc = accounts.active(), c = accounts.activeClient();
     if (!acc || !c) throw new Error("Ajoute d'abord un compte Roblox.");
-    limitedErr(c, "users.roblox.com");
     const id = acc.id, snap = monitor.snapshot() || {};
-    const [profile, robux, premium] = await Promise.all([c.profile(id), c.robux(id).catch(() => null), c.premium(id).catch(() => null)]);
+    const { profile, robux, premium } = await cache.wrap("details:" + id, async () => {
+      limitedErr(c, "users.roblox.com");
+      const [profile, robux, premium] = await Promise.all([c.profile(id), c.robux(id).catch(() => null), c.premium(id).catch(() => null)]);
+      return { profile, robux, premium };
+    }, { ttl: 5 * 60000, stale: 6 * 3600000, force: !!(p && p.force), onRefresh: () => send("refreshed", "details") });
     return {
       profile, robux, premium,
       counts: { friends: snap.friends, followers: snap.followers, following: snap.following, requests: snap.requests, watched: snap.watched },
       me: snap.me || null, status: acc.status, checkedAt: acc.checkedAt || null
     };
   },
-  "account:counts": async () => {
+  // Compteurs : le service « amis » de Roblox est volontairement espacé (1,2 s entre deux requêtes), donc 4 compteurs = ~4 s.
+  // Le monitoring les tient déjà à jour : on les sert tout de suite et on ne redemande à Roblox qu'en arrière-plan, au plus toutes les 2 min.
+  "account:counts": async (p) => {
     const acc = accounts.active(), c = accounts.activeClient();
     if (!acc || !c) throw new Error("Ajoute d'abord un compte Roblox.");
-    limitedErr(c, "friends.roblox.com");
-    const id = acc.id, snap = monitor.snapshot() || {};
-    const [friends, followers, following, requests] = await Promise.all([
-      `https://friends.roblox.com/v1/users/${id}/friends/count`, `https://friends.roblox.com/v1/users/${id}/followers/count`,
-      `https://friends.roblox.com/v1/users/${id}/followings/count`, "https://friends.roblox.com/v1/user/friend-requests/count"
-    ].map((u) => c.countOf(u).catch(() => null)));
-    return {
-      friends: friends != null ? friends : snap.friends, followers: followers != null ? followers : snap.followers,
-      following: following != null ? following : snap.following, requests: requests != null ? requests : snap.requests
-    };
+    const id = acc.id, snap = monitor.snapshot() || {}, key = "counts:" + id, force = !!(p && p.force);
+    const fromSnap = { friends: snap.friends, followers: snap.followers, following: snap.following, requests: snap.requests };
+    if (!force && !cache.peek(key) && Object.values(fromSnap).every((v) => v != null)) cache.set(key, fromSnap, 0, 3600000); // servi, puis rafraîchi en arrière-plan
+    return cache.wrap(key, () => fetchCounts(c, id), { ttl: 2 * 60000, stale: 3600000, force, onRefresh: () => send("refreshed", "counts") });
   },
   "network:page": async (p) => {
     const kind = String((p && p.kind) || ""), c = accounts.activeClient(), acc = accounts.active();
@@ -697,7 +788,7 @@ const api = {
   "history:list": (q) => historyList(q || {}),
   "history:clear": () => { data.clearHistory(); return true; },
   "history:csv": async () => {
-    const r = await dialog.showSaveDialog(win, { title: "Exporter l'historique", defaultPath: "batblox-historique.csv", filters: [{ name: "Fichier CSV", extensions: ["csv"] }] });
+    const r = await dialog.showSaveDialog(win, { title: T("Exporter l'historique"), defaultPath: "batblox-historique.csv", filters: [{ name: T("Fichier CSV"), extensions: ["csv"] }] });
     if (r.canceled || !r.filePath) return null;
     fs.writeFileSync(r.filePath, data.historyCsv(), "utf8");
     return r.filePath;
@@ -712,7 +803,7 @@ const api = {
   "roblox:updateCheck": (p) => launcher.updateCheck(!!(p && p.force)),
   "roblox:update": (p) => launcher.update({ closeFirst: !!(p && p.closeFirst) }),
   "launcher:pickExe": async () => {
-    const r = await dialog.showOpenDialog(win, { title: "Choisir le lanceur (.exe)", properties: ["openFile"], filters: [{ name: "Programme", extensions: ["exe"] }] });
+    const r = await dialog.showOpenDialog(win, { title: T("Choisir le lanceur (.exe)"), properties: ["openFile"], filters: [{ name: T("Programme"), extensions: ["exe"] }] });
     return r.canceled || !r.filePaths.length ? null : r.filePaths[0];
   },
   "roblox:launch": async (p) => { const r = await launcher.launch(p || {}); monitor.noteGame(accounts.activeId(), { pid: r.placeId }); monitor.emit("update"); if (settings.launcher.autoReapplyCustom) custom.reapplyIfNeeded(); return r; },
@@ -722,7 +813,7 @@ const api = {
 
   "executor:list": () => executor.list(),
   "executor:add": async () => {
-    const r = await dialog.showOpenDialog(win, { title: "Ajouter des logiciels à l'exécuteur", properties: ["openFile", "multiSelections"], filters: [{ name: "Programmes et raccourcis", extensions: ["exe", "lnk", "bat", "cmd"] }] });
+    const r = await dialog.showOpenDialog(win, { title: T("Ajouter des logiciels à l'exécuteur"), properties: ["openFile", "multiSelections"], filters: [{ name: T("Programmes et raccourcis"), extensions: ["exe", "lnk", "bat", "cmd"] }] });
     if (r.canceled || !r.filePaths.length) return null;
     return executor.add(r.filePaths);
   },
@@ -736,7 +827,7 @@ const api = {
   "custom:pick": async (kind) => {
     const filters = { sound: [{ name: "Son Ogg", extensions: ["ogg"] }], font: [{ name: "Police", extensions: ["ttf", "otf"] }], cursor: [{ name: "Image PNG", extensions: ["png"] }] }[kind];
     if (!filters) throw new Error("Type inconnu.");
-    const r = await dialog.showOpenDialog(win, { title: "Choisir un fichier", properties: kind === "cursor" ? ["openFile", "multiSelections"] : ["openFile"], filters });
+    const r = await dialog.showOpenDialog(win, { title: T("Choisir un fichier"), properties: kind === "cursor" ? ["openFile", "multiSelections"] : ["openFile"], filters });
     if (r.canceled || !r.filePaths.length) return null;
     const mime = { sound: "audio/ogg", font: "font/ttf", cursor: "image/png" }[kind];
     const previews = r.filePaths.slice(0, 6).map((p) => ({ name: path.basename(p), url: fs.statSync(p).size < 12 * 1048576 ? `data:${mime};base64,${fs.readFileSync(p).toString("base64")}` : null }));
@@ -750,7 +841,7 @@ const api = {
   "maint:cache": (p) => maintenance.cacheInfo(!!(p && p.force)),
   "maint:clean": ({ ids }) => maintenance.clean(ids && ids.length ? ids : null),
   "maint:integrity": () => maintenance.integrity(custom),
-  "maint:repair": () => maintenance.repair(custom, (u) => shell.openExternal(u), (p) => shell.openPath(p)),
+  "maint:repair": () => (launcher.invalidate(), maintenance.repair(custom, (u) => shell.openExternal(u), (p) => shell.openPath(p))),
   "maint:logs": () => logger.tail(300),
 
   "update:state": () => updater.state(),
@@ -767,13 +858,13 @@ const api = {
   "rpc:retry": () => rpc.retry(),
 
   "data:export": async () => {
-    const r = await dialog.showSaveDialog(win, { title: "Exporter la sauvegarde", defaultPath: `batblox-sauvegarde-${new Date().toISOString().slice(0, 10)}.json`, filters: [{ name: "Sauvegarde Batblox", extensions: ["json"] }] });
+    const r = await dialog.showSaveDialog(win, { title: T("Exporter la sauvegarde"), defaultPath: `batblox-sauvegarde-${new Date().toISOString().slice(0, 10)}.json`, filters: [{ name: T("Sauvegarde Batblox"), extensions: ["json"] }] });
     if (r.canceled || !r.filePath) return null;
     fs.writeFileSync(r.filePath, JSON.stringify(data.exportAll(), null, 2), "utf8");
     return r.filePath;
   },
   "data:import": async ({ mode }) => {
-    const r = await dialog.showOpenDialog(win, { title: "Importer une sauvegarde", properties: ["openFile"], filters: [{ name: "Sauvegarde (Batblox ou ancienne extension)", extensions: ["json"] }] });
+    const r = await dialog.showOpenDialog(win, { title: T("Importer une sauvegarde"), properties: ["openFile"], filters: [{ name: T("Sauvegarde (Batblox ou ancienne extension)"), extensions: ["json"] }] });
     if (r.canceled || !r.filePaths.length) return null;
     if (fs.statSync(r.filePaths[0]).size > 100 * 1048576) throw new Error("Fichier trop volumineux.");
     let json;
@@ -788,9 +879,91 @@ const api = {
   "win:close": () => { if (win && !win.isDestroyed()) win.close(); return true; },   // passe par la logique « réduire dans la zone de notification »
   "intro:done": () => { if (win && !win.isDestroyed()) win.setBackgroundColor(windowBg()); return true; },   // fin de l'intro : le fond de la fenêtre reprend la couleur du thème
   "win:state": () => ({ maximized: !!(win && !win.isDestroyed() && (win.isMaximized() || win.isFullScreen())) }),
+  // Recharge l'interface (changement de langue) sans rejouer l'intro
+  "app:reloadUI": () => {
+    if (win && !win.isDestroyed()) win.loadFile(INDEX);
+    if (mini && !mini.isDestroyed()) mini.loadFile(INDEX, { query: { mini: "1" } });
+    refreshTray();
+    return true;
+  },
   "app:quit": () => { quitting = true; app.quit(); return true; },
 
-  // ---- v1.5.9 : temps de jeu, résumé quotidien, sauvegarde automatique
+  // ---- v1.6.0 (2) : notes et groupes d'amis, vue tous comptes, mini-fenêtre
+  "people:get": () => people.get(),
+  "people:note": ({ id, text }) => people.setNote(id, text),
+  "people:members": ({ id, groups }) => people.setMembers(id, groups),
+  "people:groups": (list) => people.setGroups(list),
+  "accounts:overview": () => accounts.list().map((a) => {
+    const st = (monitor.state.accounts || {})[a.id] || {};
+    const cnt = monitor.stats.counts["me:" + a.id] || {};
+    const pt = playtime.summary(a.id);
+    const pres = st.presence || {};
+    const online = Object.values(pres).filter((p) => p && (p.c === "on" || p.c === "game")).length;
+    return { id: a.id, label: a.label, name: a.name, avatarUrl: a.avatarUrl, status: a.status, active: a.id === accounts.activeId(),
+      friends: st.friends ? Object.keys(st.friends).length : null, requests: st.requests ? Object.keys(st.requests).length : null,
+      followers: cnt.fo != null ? cnt.fo : null, online: st.presence ? online : null, lastCheck: st.lastCheck || 0, today: pt.today, week: pt.week };
+  }),
+  "people:alert": ({ id, on, wasOn }) => { const r = people.setAlert(id, on, wasOn); if (on) monitor.kick(1500); return r; },
+  // Anciens pseudos d'un ami (événements « changement de pseudo » de l'historique), du plus récent au plus ancien
+  "people:names": (id) => monitor.history.entries.filter((e) => e.type === "renamed" && String(e.friendId) === String(id))
+    .map((e) => ({ from: e.oldName || "", to: e.friendName || "", ts: e.ts })).sort((a, b) => b.ts - a.ts).slice(0, 50),
+
+  // ---- Signaler un problème : rapport SANS aucune donnée de connexion (pas de session, webhook, sujet ntfy, chemin personnel)
+  "app:report": () => buildReport(),
+  "app:copy": (text) => { clipboard.writeText(String(text || "").slice(0, 200000)); return true; },
+  "app:reportSave": async (text) => {
+    const r = await dialog.showSaveDialog(win, { title: T("Enregistrer le rapport"), defaultPath: `batblox-rapport-${new Date().toISOString().slice(0, 10)}.txt`, filters: [{ name: T("Texte"), extensions: ["txt"] }] });
+    if (r.canceled || !r.filePath) return null;
+    fs.writeFileSync(r.filePath, String(text || ""), "utf8");
+    return r.filePath;
+  },
+  "app:reportPage": () => { openSafe("https://github.com/BatStream-off/Batblox/issues/new"); return true; },
+
+  // ---- Bilan du mois
+  "recap:months": () => { const id = accounts.activeId(); return monthsWithData(monitor.history.entries, id ? playtime.rec(id).days : {}); },
+  "recap:month": ({ y, m } = {}) => {
+    const now = new Date(), id = accounts.activeId();
+    y = Number.isInteger(y) ? y : now.getFullYear(); m = Number.isInteger(m) && m >= 0 && m < 12 ? m : now.getMonth();
+    const r = buildRecap({ entries: monitor.history.entries, playDays: id ? playtime.rec(id).days : {}, y, m, accId: id });
+    r.text = T(recapText(r));
+    return r;
+  },
+  "recap:csv": async ({ y, m }) => {
+    const id = accounts.activeId();
+    const r = buildRecap({ entries: monitor.history.entries, playDays: id ? playtime.rec(id).days : {}, y, m, accId: id });
+    const d = await dialog.showSaveDialog(win, { title: T("Exporter le bilan"), defaultPath: `batblox-bilan-${r.key}.csv`, filters: [{ name: T("CSV"), extensions: ["csv"] }] });
+    if (d.canceled || !d.filePath) return null;
+    fs.writeFileSync(d.filePath, recapCsv(r), "utf8");
+    return d.filePath;
+  },
+  // Image du bilan : capture de la zone de la carte (coordonnées CSS envoyées par l'interface), enregistrée en PNG.
+  "recap:image": async ({ rect, key }) => {
+    if (!win || win.isDestroyed() || !rect) return null;
+    const z = win.webContents.getZoomFactor();
+    const r = { x: Math.max(0, Math.round(rect.x * z)), y: Math.max(0, Math.round(rect.y * z)), width: Math.max(1, Math.round(rect.width * z)), height: Math.max(1, Math.round(rect.height * z)) };
+    const img = await win.webContents.capturePage(r);
+    const d = await dialog.showSaveDialog(win, { title: T("Enregistrer le bilan en image"), defaultPath: `batblox-bilan-${/^\d{4}-\d{2}$/.test(String(key)) ? key : "mois"}.png`, filters: [{ name: T("Image PNG"), extensions: ["png"] }] });
+    if (d.canceled || !d.filePath) return null;
+    fs.writeFileSync(d.filePath, img.toPNG());
+    return d.filePath;
+  },
+  "recap:copyImage": async ({ rect }) => {
+    if (!win || win.isDestroyed() || !rect) return false;
+    const z = win.webContents.getZoomFactor();
+    const img = await win.webContents.capturePage({ x: Math.round(rect.x * z), y: Math.round(rect.y * z), width: Math.round(rect.width * z), height: Math.round(rect.height * z) });
+    clipboard.writeImage(img);
+    return true;
+  },
+
+  // ---- Cache (Réglages → Données)
+  "cache:info": () => cache.info(),
+  "cache:clear": () => { const n = cache.clear(); discoverCache = null; launcher.invalidate && launcher.invalidate(); return n; },
+
+  "mini:toggle": (on) => toggleMini(on),
+  "mini:close": () => toggleMini(false),
+  "mini:openMain": (page) => { showWindow(); if (page) send("navigate", String(page)); return true; },
+
+  // ---- v1.6.0 : temps de jeu, résumé quotidien, sauvegarde automatique
   "playtime:summary": () => { const id = accounts.activeId(); return id ? playtime.summary(id) : null; },
   "playtime:clear": () => { playtime.clear(accounts.activeId()); return true; },
   "digest:preview": () => scheduler.digestUnit(),
@@ -800,7 +973,7 @@ const api = {
     return n;
   },
   "backup:pickDir": async () => {
-    const r = await dialog.showOpenDialog(win, { title: "Dossier des sauvegardes automatiques", properties: ["openDirectory", "createDirectory"] });
+    const r = await dialog.showOpenDialog(win, { title: T("Dossier des sauvegardes automatiques"), properties: ["openDirectory", "createDirectory"] });
     if (r.canceled || !r.filePaths.length) return null;
     api["settings:set"]({ backup: { dir: r.filePaths[0] } });
     return settings.backup.dir;
@@ -810,12 +983,19 @@ const api = {
   "backup:open": async () => { if (!settings.backup.dir) return false; const err = await shell.openPath(settings.backup.dir); if (err) throw new Error(err); return true; }
 };
 
+// Lectures sans effet de bord : deux appels identiques en même temps (accueil + mini-fenêtre, page + actualisation…) n'en font qu'un.
+const READ_ONLY = new Set(["friends:list", "avatars", "gameicons", "account:details", "account:counts", "roblox:status", "roblox:updateCheck", "discover:games", "discover:trending",
+  "chat:list", "chat:unread", "watch:list", "stats:overview", "stats:people", "stats:heat", "history:list", "playtime:summary", "recap:month", "recap:months", "accounts:overview",
+  "people:get", "people:names", "custom:status", "executor:list", "update:state", "rpc:state", "friends:idle", "friends:stats", "cache:info", "backup:state"]);
 function registerIpc() {
   ipcMain.handle("api", async (e, name, payload) => {
     if (!e.senderFrame || !String(e.senderFrame.url).startsWith("file://")) return { ok: false, error: "Appel refusé." };
     const fn = api[name];
     if (!fn) return { ok: false, error: "Commande inconnue." };
-    try { return { ok: true, data: await fn(payload) }; }
+    try {
+      if (READ_ONLY.has(name)) { let k; try { k = "ipc:" + name + "|" + JSON.stringify(payload === undefined ? null : payload); } catch (_) { k = null; } if (k && k.length < 20000) return { ok: true, data: await cache.once(k, () => fn(payload)) }; }
+      return { ok: true, data: await fn(payload) };
+    }
     catch (err) { logger.warn(`${name} : ${err && err.message}`); return { ok: false, error: (err && err.message) || "Erreur inattendue." }; }
   });
 }
@@ -826,12 +1006,18 @@ async function boot() {
   storage = new Storage(dataDir);
   logger = new Logger(path.join(app.getPath("userData"), "journaux"));
   vault = new Vault(safeStorage);
+  const firstRun = !fs.existsSync(path.join(dataDir, "settings.json"));
   settings = sanitize(storage.get("settings", () => JSON.parse(JSON.stringify(DEFAULT_SETTINGS))));
+  if (firstRun) settings.appearance.lang = /^fr/i.test(app.getLocale() || "") ? "fr" : "en"; // première installation : langue de Windows
   storage.set("settings", settings);
 
+  // Cache : seules les données publiques et sans secret vont sur le disque (avatars, icônes, listes de jeux).
+  cache = new Cache({ storage, logger, persist: (k) => /^(avatar|icon|trend|discover):/.test(k) });
   accounts = new AccountManager({ storage, vault, sessions, logger });
   playtime = new PlayTime({ storage, getSettings, logger });
-  notifier = new Notifier({ getSettings, desktop: desktopNotify, logger, fetchImpl: (u, i) => net.fetch(u, withTimeout(i)), isPlaying: () => playtime.playing });
+  people = new People({ storage, lang: () => settings.appearance.lang });
+  notifier = new Notifier({ getSettings, desktop: desktopNotify, logger, fetchImpl: (u, i) => net.fetch(u, withTimeout(i)), isPlaying: () => playtime.playing, tr: T,
+    allow: (e) => people.allow(e, settings.notifications.groupConnOnly) });
   monitor = new Monitor({ storage, accounts, notifier, logger, getSettings });
   launcher = new RobloxLauncher({ execFile, openExternal: (u) => shell.openExternal(u), accounts, monitor, logger, getSettings });
   maintenance = new Maintenance({ launcher, accounts, logger, getSettings });
@@ -885,7 +1071,34 @@ async function boot() {
   accounts.on("list", () => send("accounts", accounts.list()));
   monitor.on("favorites-migrated", () => { try { api["settings:set"]({ monitoring: { favorites: [] } }); } catch (e) { logger.error(e); } });
   monitor.on("update", () => { send("monitor", monitor.snapshot()); refreshTray(); });
+  // Préchargement discret après la première vérification : avatars des amis, icônes des derniers jeux, tendances de l'accueil.
+  // Les pages s'ouvrent ensuite sans attendre le réseau (et tout reste sur le disque pour le prochain démarrage).
+  let warmed = null;
+  const warmup = async () => {
+    try {
+      const c = accounts.activeClient(); if (!c) return;
+      const friends = monitor.friendsView();
+      const online = friends.filter((f) => f.status !== "hors_ligne"), rest = friends.filter((f) => f.status === "hors_ligne");
+      await avatarsFor(online.concat(rest).slice(0, 200).map((f) => f.id));
+      const snap = monitor.snapshot() || {};
+      await iconsFor(c, ((snap.recentGames || []).map((g) => g.pid)).concat((settings.launcher.favorites || []).map((f) => f.placeId)));
+      trendingGames(false).catch(() => {});
+    } catch (e) { logger.warn("Préchargement : " + (e && e.message)); }
+  };
+  monitor.on("update", () => { const id = accounts.activeId(); if (id && monitor.lastRun && warmed !== id) { warmed = id; setTimeout(warmup, 2500).unref(); } });
   monitor.on("history", (entries) => send("history", entries.length));
+  // Alertes « prévenir à la prochaine connexion » : uniques, elles passent même si les notifications de ce type sont coupées.
+  monitor.extraPresenceIds = () => people.alertIds();
+  monitor.on("history", (entries) => {
+    const hits = people.takeAlerts(entries);
+    for (const e of hits) {
+      const who = e.friendName || "Ton ami";
+      const u = { icon: "🔔", title: who + " est en ligne", text: e.type === "ingame" && e.place ? `${who} vient de se connecter et joue à ${e.place}.` + " Clique pour le rejoindre." : `${who} vient de se connecter.`, type: "online" };
+      try { desktopNotify(`${u.icon} ${u.title}`, u.text, { sound: true, join: e.type === "ingame" ? e.friendId : undefined, page: "friends" }); } catch (err) { logger.warn("Alerte de connexion : " + err.message); }
+      notifier.sendRemote(u).catch(() => {});
+    }
+    if (hits.length) send("people");
+  });
   // Temps de jeu : alimenté par mon propre statut à chaque vérification
   monitor.on("mypresence", (accId, pres, ts) => { playtime.update(accId, pres, ts); send("playtime"); });
   accounts.on("changed", () => playtime.stop());
@@ -907,7 +1120,7 @@ async function boot() {
 
 app.on("second-instance", () => showWindow());
 app.on("window-all-closed", () => { /* l'application reste dans la zone de notification */ });
-app.on("before-quit", () => { quitting = true; try { if (storage) storage.flush(); } catch (_) {} });
+app.on("before-quit", () => { quitting = true; try { if (cache) cache.flush(); if (storage) storage.flush(); } catch (_) {} });
 app.on("will-quit", () => { try { accounts && accounts.persistCookies(); } catch (_) {} });
 
 app.whenReady().then(() => boot().catch((e) => { console.error(e); dialog.showErrorBox("Batblox", "Impossible de démarrer : " + (e && e.message)); app.quit(); }));

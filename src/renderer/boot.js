@@ -1,5 +1,7 @@
 "use strict";
 (async function () {
+  B.isMini = /[?&]mini=1(?:&|$)/.test(location.search);
+  if (B.isMini) document.documentElement.dataset.mini = "1";
   // Signale à l'intro vidéo que l'interface est rendue : elle peut alors s'effacer sur un écran prêt (ou après erreur).
   const ready = () => { window.__bbReady = true; window.dispatchEvent(new Event("batblox:ready")); };
   try {
@@ -10,6 +12,7 @@
     ready();
     return;
   }
+  B.applyLang(); // anglais : jours, durées, HTML statique (avant le premier rendu)
   B.applyAppearance();
   window.batblox.on(B.onEvent);
   // Lueur qui suit la souris : une mise à jour par image au plus, et aucune pendant l'intro (chaque écriture recalcule le style de toute la page).
@@ -17,9 +20,11 @@
   const root = document.documentElement;
   const paintGlow = () => { mq = 0; root.style.setProperty("--mx", mx + "px"); root.style.setProperty("--my", my + "px"); };
   window.addEventListener("mousemove", (e) => { mx = e.clientX; my = e.clientY; if (!mq && !root.classList.contains("intro-on")) mq = requestAnimationFrame(paintGlow); }, { passive: true });
-  B.renderNav(); B.renderAccount(); B.renderStatus();
+  B.renderNav(); B.renderAccount(); B.renderStatus(); B.initTopButtons();
+  if (B.isMini) { B.go("mini"); ready(); return; } // mini-fenêtre « Amis en ligne » : une seule vue, rien d'autre
   B.go(B.S.active ? (B.S.settings.appearance.startPage || "home") : "accounts"); // page d'ouverture choisie dans les réglages
   ready();
+  B.afterBoot(); // guide du premier lancement ou « Quoi de neuf » (après l'intro)
   setInterval(() => { B.renderStatus(); }, 30000);
   setTimeout(() => B.pollChat(), 4000);
   setInterval(() => { if (B.page !== "messages") B.pollChat(); }, 180000);

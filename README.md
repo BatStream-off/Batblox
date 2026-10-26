@@ -2,10 +2,10 @@
 
 # 🦇 Batblox
 
-**Le centre de contrôle Roblox pour Windows.**
+**Le centre de contrôle Roblox pour Windows.** · *Also available in English.*
 Lanceur, amis, profils suivis, historique, statistiques et notifications dans une seule application, entièrement en français.
 
-![Version](https://img.shields.io/badge/version-1.5.9-2563F2)
+![Version](https://img.shields.io/badge/version-1.6.0-2563F2)
 ![Plateforme](https://img.shields.io/badge/plateforme-Windows-0078D4)
 ![Electron](https://img.shields.io/badge/Electron-33-47848F)
 
@@ -27,7 +27,10 @@ Lanceur, amis, profils suivis, historique, statistiques et notifications dans un
 - **Thèmes** : Clair, Sombre, Batcave Neon, Joker, Batman, Inde, mode potato pour les PC anciens.
 - **Temps de jeu** par jour et par jeu, avec limite quotidienne et rappel.
 - **Jeux surveillés** (alerte quand un ami lance un jeu choisi, clic pour le rejoindre), **silence pendant que je joue**, **résumé quotidien** sur Discord / ntfy.
+- **Bilan du mois** à partager, alerte **« prochaine connexion »**, **anciens pseudos**, bouton **« Signaler un problème »**, interface **en français ou en anglais**.
+- **Groupes et notes d'amis**, **recherche globale (Ctrl+K)**, **mode streamer**, **mini-fenêtre « Amis en ligne »**, **vue de tous les comptes**, fenêtre **« Quoi de neuf »** et **guide du premier lancement**.
 - **Sauvegarde automatique** hebdomadaire, **raccourcis clavier**, **taille de l'interface**, **couleur d'accent**, **page d'ouverture**.
+- **Rapide** : cache des avatars, icônes et listes de jeux (aussi sur le disque), affichage immédiat puis mise à jour en arrière-plan.
 - **Mises à jour automatiques depuis GitHub** (voir plus bas).
 
 ## 📥 Installation

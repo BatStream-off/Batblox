@@ -24,7 +24,7 @@ B.h = function (tag, attrs, ...kids) {
 };
 const h = (...a) => B.h(...a);
 
-// ---------- Icônes au trait à la place des emojis (v1.5.9) ----------
+// ---------- Icônes au trait à la place des emojis (v1.6.0) ----------
 // Les libellés gardent leur emoji dans le code (lisible), mais à l'affichage un emoji en tête d'un bouton, d'un titre ou d'un bandeau
 // est remplacé par une icône SVG au trait, de la même famille que celles du menu : même épaisseur, couleur du thème, nette à toutes les tailles.
 // Les noms de jeux ou de joueurs ne sont jamais touchés (seuls les boutons, titres h1-h3, bandeaux .notice et pastilles .pill le sont).
@@ -58,12 +58,22 @@ B.GLYPH = {
   flame: _s('<path d="M12 21c-3.9 0-7-2.8-7-6.6 0-3.4 2.6-5.3 3.8-8.4.5 2 1.6 3.1 2.7 3.6C12 6.5 13.3 4.4 15.5 3c-.3 3 1.3 4.7 2.5 6.4 1 1.5 1 3 1 4.4 0 4-3.1 7.2-7 7.2Z"/>'),
   gem: _s('<path d="M7 4.5h10l3.5 5L12 20 3.5 9.5Z"/><path d="M3.5 9.5h17M9.5 4.5 8 9.5l4 10.5 4-10.5-1.5-5"/>'),
   x: _s('<path d="M6 6l12 12M18 6 6 18"/>'),
+  bell: _s('<path d="M6 16V11a6 6 0 1 1 12 0v5l1.5 2h-15Z"/><path d="M10 21h4"/>'),
+  bug: _s('<rect x="7" y="7" width="10" height="13" rx="5"/><path d="M12 11v9M7 12H3M21 12h-4M7 17H4M20 17h-3M8 5l1.5 2M16 5l-1.5 2"/>'),
+  copy: _s('<rect x="8" y="8" width="12" height="12" rx="2.5"/><path d="M16 8V5.5A1.5 1.5 0 0 0 14.5 4h-9A1.5 1.5 0 0 0 4 5.5v9A1.5 1.5 0 0 0 5.5 16H8"/>'),
+  image: _s('<rect x="3" y="4.5" width="18" height="15" rx="2.5"/><circle cx="9" cy="10" r="1.8"/><path d="m21 16-5.5-5.5L6 19.5"/>'),
+  eyeoff: _s('<path d="M4 4l16 16"/><path d="M9.9 5.6A9.6 9.6 0 0 1 12 5.5c6.4 0 10 6.5 10 6.5a17 17 0 0 1-3.1 3.8M6.6 6.7C3.7 8.5 2 12 2 12s3.6 6.5 10 6.5c1.6 0 3-.4 4.3-1"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/>'),
+  mini: _s('<rect x="3" y="4" width="18" height="16" rx="2.5"/><rect x="12" y="11" width="7" height="7" rx="1.5"/>'),
+  search: _s('<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>'),
+  note: _s('<path d="M5 4h14v11l-5 5H5Z"/><path d="M14 20v-5h5M8.5 9h7M8.5 12.5h4"/>'),
+  tag: _s('<path d="M3.5 12.5V4h8.5l8.5 8.5-8.5 8.5Z"/><circle cx="8" cy="8.5" r="1.4"/>'),
+  sparkles: _s('<path d="M12 3.5 13.6 9 19 10.6 13.6 12.2 12 17.7 10.4 12.2 5 10.6 10.4 9Z"/><path d="M19 3v4M17 5h4M5 17v4M3 19h4"/>'),
   dots: _s('<circle cx="12" cy="5.5" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="12" cy="18.5" r="1.3"/>', true)
 };
 B.EMOJI_GLYPH = {
   "🔄": "refresh", "➕": "plus", "✓": "check", "✅": "check", "🎮": "play", "⚠": "warn", "⚙": "gear", "👁": "eye", "⬇": "down", "⬆": "up", "⏳": "wait",
   "📂": "folder", "🗑": "trash", "📜": "history", "📊": "stats", "🔕": "belloff", "✏": "edit", "🔊": "sound", "⏸": "pause", "←": "left", "👤": "user",
-  "👥": "users", "☆": "star", "⭐": "starOn", "🧹": "sparkle", "🔒": "lock", "🔥": "flame", "💎": "gem", "✕": "x", "⋮": "dots"
+  "👥": "users", "🔔": "bell", "🐞": "bug", "📋": "copy", "🖼": "image", "💾": "down", "📝": "note", "🏷": "tag", "✨": "sparkles", "🔍": "search", "☆": "star", "⭐": "starOn", "🧹": "sparkle", "🔒": "lock", "🔥": "flame", "💎": "gem", "✕": "x", "⋮": "dots"
 };
 const GLYPH_TAGS = { BUTTON: 1, H1: 1, H2: 1, H3: 1 };
 const GLYPH_RE = /^([←-⯿⌀-⏿]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|\uD83E[\uDC00-\uDFFF])️?(?:\s+|$)/;
@@ -76,7 +86,9 @@ B.glyphify = (el) => {
   if (!m || !B.EMOJI_GLYPH[m[1]]) return el;
   const rest = t.data.slice(m[0].length);
   el.insertBefore(B.glyph(B.EMOJI_GLYPH[m[1]]), t);
-  if (rest) t.data = rest; else { t.remove(); el.classList.add("icon-only"); }
+  if (rest) t.data = rest;
+  else { t.remove(); if (el.childNodes.length === 1) el.classList.add("icon-only"); } // vraiment une icône seule (pas « ⚙ », « Options » en deux morceaux)
+  const nx = el.childNodes[1]; if (nx && nx.nodeType === 3) nx.data = nx.data.replace(/^\s+/, ""); // l'écart icône / texte vient du « gap » du bouton
   return el;
 };
 /** Change le libellé d'un bouton déjà affiché (même conversion emoji → icône). */
@@ -101,7 +113,7 @@ B.dateLabel = (ts) => {
   const diff = Math.round((t - new Date(d.getFullYear(), d.getMonth(), d.getDate())) / 86400000);
   if (diff === 0) return "Aujourd'hui";
   if (diff === 1) return "Hier";
-  return d.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: d.getFullYear() === t.getFullYear() ? undefined : "numeric" });
+  return d.toLocaleDateString(B.loc(), { weekday: "long", day: "numeric", month: "long", year: d.getFullYear() === t.getFullYear() ? undefined : "numeric" });
 };
 B.ago = (ts) => {
   if (!ts) return "jamais";
@@ -113,9 +125,9 @@ B.ago = (ts) => {
 };
 B.dur = (sec) => { sec = Math.round(sec); if (sec < 60) return sec + " s"; if (sec < 3600) return Math.round(sec / 60) + " min"; return Math.floor(sec / 3600) + " h " + pad(Math.round((sec % 3600) / 60)) + " min"; };
 B.bytes = (n) => { n = Number(n) || 0; const fr = (v, d) => v.toFixed(d).replace(".", ","); return n < 1024 ? n + " o" : n < 1048576 ? fr(n / 1024, 0) + " Ko" : n < 1073741824 ? fr(n / 1048576, 1) + " Mo" : fr(n / 1073741824, 2) + " Go"; };
-B.num = (n) => (n == null ? "—" : Number(n).toLocaleString("fr-FR"));
+B.num = (n) => (n == null ? "—" : Number(n).toLocaleString(B.loc()));
 // Grand nombre lisible dans une petite tuile : 1 234 567 → « 1,23 M », 123 456 → « 123 k » (la valeur exacte reste dans l'infobulle).
-B.numShort = (n) => { if (n == null) return "—"; n = Number(n); const f = (v, d) => v.toLocaleString("fr-FR", { maximumFractionDigits: d }); return n >= 1e6 ? f(n / 1e6, 2) + "\u00a0M" : n >= 1e5 ? f(n / 1e3, 0) + "\u00a0k" : B.num(n); };
+B.numShort = (n) => { if (n == null) return "—"; n = Number(n); const f = (v, d) => v.toLocaleString(B.loc(), { maximumFractionDigits: d }); return n >= 1e6 ? f(n / 1e6, 2) + "\u00a0M" : n >= 1e5 ? f(n / 1e3, 0) + "\u00a0k" : B.num(n); };
 // Initiale d'un nom : première lettre ou chiffre (accents compris) ; saute les crochets et emojis de tête sans couper un emoji en deux.
 B.initial = (name) => { const t = String(name == null ? "" : name).trim(); const m = t.match(/[\p{L}\p{N}]/u); return (m ? m[0] : Array.from(t)[0] || "?").toUpperCase(); };
 const DAYS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
@@ -133,7 +145,7 @@ B.countUp = (el, n, ms = 650) => {
   const step = (t) => { const k = Math.min(1, (t - t0) / ms), e = 1 - Math.pow(1 - k, 3); el.textContent = B.num(Math.round(end * e)); if (k < 1 && el.isConnected) requestAnimationFrame(step); else el.textContent = B.num(n); };
   requestAnimationFrame(step);
 };
-B.greet = () => { const hr = new Date().getHours(); return hr < 5 ? "Bonsoir" : hr < 18 ? "Bonjour" : "Bonsoir"; };
+B.greet = () => { const hr = new Date().getHours(); return B.tr(hr < 5 ? "Bonsoir" : hr < 18 ? "Bonjour" : "Bonsoir"); };
 B.skeleton = (n = 6) => h("div", { class: "tiles", "aria-busy": "true", "aria-label": "Chargement" }, Array.from({ length: n }, () => h("div", { class: "tile sk-tile" }, h("div", { class: "sk sk-cover" }), h("div", { class: "sk sk-line" }), h("div", { class: "sk sk-line short" }))));
 
 // ---------- Messages ----------
@@ -213,7 +225,7 @@ B.statusLabel = (s) => ({ en_ligne: "En ligne", jeu: "En jeu", studio: "Dans Stu
 
 B.avatar = (id, name, cls, url) => {
   const el = h("span", { class: "av " + (cls || "") }, B.initial(name));
-  const set = (u) => { if (u) { el.textContent = ""; el.append(h("img", { src: u, alt: "", style: "width:100%;height:100%;object-fit:cover" })); } };
+  const set = (u) => { if (u) { el.textContent = ""; el.append(h("img", { src: u, alt: "", loading: "lazy", decoding: "async", style: "width:100%;height:100%;object-fit:cover" })); } };
   if (url) { set(url); return el; }
   if (!id) return el;
   id = String(id);
@@ -310,7 +322,9 @@ B.lineChart = (points, { label = "", color = "var(--acc2)", width = 640, height 
   const s = B.svg;
   const pts = points.filter((p) => p.v != null);
   if (pts.length < 2) return h("div", { class: "empty" }, "Pas encore assez de données. Les points apparaissent au fil des vérifications.");
-  const o = B.prefs.get(key, { type: "smooth", area: true, points: false, zero: false, extremes: true });
+  // Par défaut « Escalier » : un nombre d'amis ou d'abonnés change par sauts entiers ; une courbe lissée inventerait des pentes
+  // (16 → 14 « en descente » sur une journée) qui n'ont jamais existé. Les autres styles restent disponibles dans « Options ».
+  const o = B.prefs.get(key, { type: "step", area: true, points: false, zero: false, extremes: true });
   const wrap = h("div", { class: "chart" });
   const rebuild = (keepOpen) => { B._reopen = keepOpen ? key : null; const n = B.lineChart(points, { label, color, width, height, key, name }); B._reopen = null; wrap.replaceWith(n); };
   const L = 46, R = 16, T = 16, Bt = 28, base = height - Bt;
@@ -325,9 +339,9 @@ B.lineChart = (points, { label = "", color = "var(--acc2)", width = 640, height 
   const svg = s("svg", { viewBox: `0 0 ${width} ${height}`, role: "img", "aria-label": label });
   svg.append(s("defs", {}, s("linearGradient", { id: gid, x1: 0, y1: 0, x2: 0, y2: 1 },
     s("stop", { offset: "0%", style: `stop-color:${color};stop-opacity:.32` }), s("stop", { offset: "100%", style: `stop-color:${color};stop-opacity:0` }))));
-  for (const v of ticks) { const yy = y(v); svg.append(s("line", { x1: L, x2: width - R, y1: yy, y2: yy, class: "grid" }), s("text", { x: L - 8, y: yy + 3.5, "text-anchor": "end" }, Math.round(v).toLocaleString("fr-FR"))); }
+  for (const v of ticks) { const yy = y(v); svg.append(s("line", { x1: L, x2: width - R, y1: yy, y2: yy, class: "grid" }), s("text", { x: L - 8, y: yy + 3.5, "text-anchor": "end" }, Math.round(v).toLocaleString(B.loc()))); }
   const span = t1 - t0, long = span > 2 * 86400000;
-  const fmt = (t) => new Date(t).toLocaleString("fr-FR", long ? { day: "numeric", month: "short" } : { day: "numeric", hour: "2-digit", minute: "2-digit" });
+  const fmt = (t) => new Date(t).toLocaleString(B.loc(), long ? { day: "numeric", month: "short" } : { day: "numeric", hour: "2-digit", minute: "2-digit" });
   for (let i = 0; i <= 4; i++) svg.append(s("text", { x: L + ((width - L - R) * i) / 4, y: height - 8, "text-anchor": i === 0 ? "start" : i === 4 ? "end" : "middle" }, fmt(t0 + (span * i) / 4)));
   const P = pts.map((p) => [x(p.t), y(p.v)]), f = (v) => v.toFixed(1);
   const line = o.type === "smooth" ? B.smoothPath(P)
@@ -340,7 +354,7 @@ B.lineChart = (points, { label = "", color = "var(--acc2)", width = 640, height 
   if (o.extremes) for (const [i, up] of [[pts.findIndex((p) => p.v === Math.max(...pts.map((z) => z.v))), true], [pts.findIndex((p) => p.v === Math.min(...pts.map((z) => z.v))), false]]) {
     if (i === lastI || i === 0) continue;
     const q = P[i], tx = Math.min(width - R - 14, Math.max(L + 14, q[0]));
-    svg.append(s("circle", { cx: q[0], cy: q[1], r: 3.2, class: "pt", style: `stroke:${color}` }), s("text", { x: tx, y: up ? q[1] - 10 : q[1] + 17, "text-anchor": "middle", class: "mk" }, pts[i].v.toLocaleString("fr-FR")));
+    svg.append(s("circle", { cx: q[0], cy: q[1], r: 3.2, class: "pt", style: `stroke:${color}` }), s("text", { x: tx, y: up ? q[1] - 10 : q[1] + 17, "text-anchor": "middle", class: "mk" }, pts[i].v.toLocaleString(B.loc())));
   }
   const last = P[lastI];
   svg.append(s("circle", { cx: last[0], cy: last[1], r: 7, fill: color, opacity: ".18" }), s("circle", { cx: last[0], cy: last[1], r: 4, class: "pt", style: `stroke:${color};stroke-width:2.4` }));
@@ -354,7 +368,7 @@ B.lineChart = (points, { label = "", color = "var(--acc2)", width = 640, height 
     const q = P[k];
     cross.setAttribute("x1", q[0]); cross.setAttribute("x2", q[0]); cross.setAttribute("opacity", 1);
     dot.setAttribute("cx", q[0]); dot.setAttribute("cy", q[1]); dot.setAttribute("opacity", 1);
-    B._placeTip(tip, (q[0] / width) * 100, (q[1] / height) * 100, [h("div", { class: "d" }, new Date(pts[k].t).toLocaleString("fr-FR", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })), h("b", {}, pts[k].v.toLocaleString("fr-FR"))]);
+    B._placeTip(tip, (q[0] / width) * 100, (q[1] / height) * 100, [h("div", { class: "d" }, new Date(pts[k].t).toLocaleString(B.loc(), { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })), h("b", {}, pts[k].v.toLocaleString(B.loc()))]);
   });
   svg.addEventListener("pointerleave", () => { cross.setAttribute("opacity", 0); dot.setAttribute("opacity", 0); tip.classList.remove("on"); });
   const tools = B.sectionTools(key, [
@@ -399,8 +413,8 @@ B.barChart = (rows, { height = 220, width = 640, key = "bars" } = {}) => {
     if (mode === "net") { const v = a - d; svg.append(bar(cx - bw / 2, 0, v, v >= 0 ? "b-add" : "b-rem")); topY = y(Math.max(0, v)); info = [h("b", { class: v >= 0 ? "ok" : "bad" }, (v > 0 ? "+" : v < 0 ? "−" : "") + Math.abs(v)), " solde"]; }
     else if (mode === "stack") { svg.append(bar(cx - bw / 2, 0, a, "b-add", !d), bar(cx - bw / 2, a, a + d, "b-rem")); topY = y(a + d); info = [h("b", { class: "ok" }, "+" + a), " · ", h("b", { class: "bad" }, "−" + d)]; }
     else { svg.append(bar(cx - bw - 1.5, 0, a, "b-add"), bar(cx + 1.5, 0, d, "b-rem")); topY = y(Math.max(a, d)); info = [h("b", { class: "ok" }, "+" + a), " · ", h("b", { class: "bad" }, "−" + d)]; }
-    if (i % step === 0) svg.append(s("text", { x: cx, y: height - 8, "text-anchor": "middle" }, new Date(r.w).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })));
-    hit.addEventListener("pointerenter", () => { hl.classList.add("on"); B._placeTip(tip, (cx / width) * 100, (topY / height) * 100, [h("div", { class: "d" }, "Semaine du " + new Date(r.w).toLocaleDateString("fr-FR", { day: "numeric", month: "long" })), ...info]); });
+    if (i % step === 0) svg.append(s("text", { x: cx, y: height - 8, "text-anchor": "middle" }, new Date(r.w).toLocaleDateString(B.loc(), { day: "numeric", month: "short" })));
+    hit.addEventListener("pointerenter", () => { hl.classList.add("on"); B._placeTip(tip, (cx / width) * 100, (topY / height) * 100, [h("div", { class: "d" }, "Semaine du " + new Date(r.w).toLocaleDateString(B.loc(), { day: "numeric", month: "long" })), ...info]); });
     hit.addEventListener("pointerleave", () => { hl.classList.remove("on"); tip.classList.remove("on"); });
     svg.append(hit);
   });
@@ -428,12 +442,12 @@ B.sparkline = (vals, { color = "var(--acc2)", width = 120, height = 34 } = {}) =
     s("path", { d, fill: "none", stroke: color, "stroke-width": 2, "stroke-linecap": "round", "vector-effect": "non-scaling-stroke" }));
 };
 // Badge de variation (▲ +4 / ▼ −2 / = stable)
-B.delta = (diff, unit = "") => h("span", { class: "delta " + (diff > 0 ? "up" : diff < 0 ? "down" : "flat") }, (diff > 0 ? "▲ +" : diff < 0 ? "▼ −" : "＝ ") + (diff === 0 ? "stable" : Math.abs(diff).toLocaleString("fr-FR") + unit));
+B.delta = (diff, unit = "") => h("span", { class: "delta " + (diff > 0 ? "up" : diff < 0 ? "down" : "flat") }, (diff > 0 ? "▲ +" : diff < 0 ? "▼ −" : "＝ ") + (diff === 0 ? "stable" : Math.abs(diff).toLocaleString(B.loc()) + unit));
 // En-tête d'un graphique : grosse valeur actuelle + variation sur la période
 B.chartSummary = (pts, name) => {
   if (!pts || pts.length < 2) return null;
   const first = pts[0], last = pts[pts.length - 1], diff = last.v - first.v;
-  return h("div", { class: "chart-sum" }, h("div", { class: "big" }, last.v.toLocaleString("fr-FR"), h("span", {}, name)), B.delta(diff), h("span", { class: "muted small" }, "depuis le " + new Date(first.t).toLocaleDateString("fr-FR", { day: "numeric", month: "long" })));
+  return h("div", { class: "chart-sum" }, h("div", { class: "big" }, last.v.toLocaleString(B.loc()), h("span", {}, name)), B.delta(diff), h("span", { class: "muted small" }, "depuis le " + new Date(first.t).toLocaleDateString(B.loc(), { day: "numeric", month: "long" })));
 };
 // Bandeau min / max / moyenne
 B.statStrip = (vals) => {

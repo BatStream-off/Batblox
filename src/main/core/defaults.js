@@ -8,7 +8,9 @@ const DEFAULT_SETTINGS = {
     intro: true,          // intro vidéo au lancement
     zoom: 100,            // taille de l'interface en % (80 à 130)
     startPage: "home",    // page affichée à l'ouverture
-    accent: "bleu" },     // couleur d'accent des thèmes Clair / Sombre / Auto
+    accent: "bleu",       // couleur d'accent des thèmes Clair / Sombre / Auto
+    streamer: false,      // mode streamer : pseudos, avatars et identifiants masqués à l'écran
+    lang: "fr" },         // langue de l'interface : "fr" ou "en" (première installation : langue de Windows)    // mode streamer : pseudos, avatars et identifiants masqués à l'écran
   monitoring: {
     enabled: true,
     intervalSec: 60,
@@ -33,12 +35,14 @@ const DEFAULT_SETTINGS = {
     ntfy: { enabled: false, server: "https://ntfy.sh", topic: "" },
     quietInGame: false,                        // notifications Windows retenues pendant que je joue, résumé à la fin de la partie
     gameAlerts: [],                            // jeux surveillés : nom (ou partie du nom) ou identifiant de jeu
-    digest: { enabled: false, time: "21:00" }  // résumé quotidien envoyé sur Discord / ntfy
+    digest: { enabled: false, time: "21:00" }, // résumé quotidien envoyé sur Discord / ntfy
+    groupConnOnly: false                       // connexions / déconnexions notifiées seulement pour les groupes choisis
   },
   playtime: { dailyLimitMin: 0 },              // limite de temps de jeu par jour, en minutes (0 = aucune)
   backup: { enabled: false, dir: "", keep: 8 }, // sauvegarde automatique hebdomadaire
   network: { publicProxy: "" }, // domaine d'un relais pour les données publiques des profils suivis (vide = direct, sans session)
-  system: { trayOnClose: true, startMinimized: false, launchAtStartup: false },
+  system: { trayOnClose: true, startMinimized: false, launchAtStartup: false, miniOnTop: true },
+  ui: { seenVersion: "", onboarded: false },   // « Quoi de neuf » déjà vu pour cette version, guide du premier lancement terminé
   launcher: { favorites: [], autoReapplyCustom: true, client: "auto", customExe: "" }, // client : auto | roblox | bloxstrap | fishstrap | voidstrap | custom
   maintenance: { autoClean: false, autoCleanMb: 500 },
   discordRpc: { enabled: false, clientId: "" },

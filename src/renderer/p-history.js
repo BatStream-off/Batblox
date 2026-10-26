@@ -28,7 +28,7 @@ B.pages.history = {
     const r = await B.run(() => B.call("history:list", { types, search: this.search, page: this.pageNo, size: 60 }));
     const box = B.$("#hl"); if (!box || !r) return;
     B.clear(box);
-    const c = B.$("#hcount"); if (c) c.textContent = r.total + " événement(s)";
+    const c = B.$("#hcount"); if (c) c.textContent = B.tr(r.total + " événement(s)");
     if (!r.items.length) { box.append(h("div", { class: "card empty" }, this.search || this.filter !== "tout" ? "Aucun événement ne correspond à ces filtres." : "Aucun événement pour le moment. Batblox enregistre les changements à partir de la deuxième vérification.")); return; }
     let last = "";
     for (const e of r.items) {

@@ -52,12 +52,14 @@ class Notifier {
    * desktop(title, body, {sound, join}) : affiche une notification Windows (join = identifiant d'un ami à rejoindre au clic).
    * isPlaying() : vrai pendant que le compte actif est en jeu (pour « Silence pendant que je joue »).
    */
-  constructor({ getSettings, desktop, logger, fetchImpl, isPlaying }) {
+  constructor({ getSettings, desktop, logger, fetchImpl, isPlaying, allow, tr }) {
     this.getSettings = getSettings;
     this.desktop = desktop;
     this.log = logger;
     this.fetch = fetchImpl || ((...a) => fetch(...a));
     this.isPlaying = isPlaying || (() => false);
+    this.allow = allow || (() => true);
+    this.tr = tr || ((s) => s); // langue de l'interface (Discord / ntfy) // règle des groupes d'amis (sourdine, connexions seulement pour certains groupes)
     this.held = []; // notifications Windows retenues pendant la partie
   }
 
@@ -70,6 +72,7 @@ class Notifier {
   notify(entries, now = new Date()) {
     const N = this.getSettings().notifications;
     if (!N.enabled) return 0;
+    entries = entries.filter((e) => this.allow(e));
     // Jeux surveillés : alerte dédiée (cliquable pour rejoindre), même si « Jeu lancé » est désactivé dans les événements.
     const alerts = entries.filter((e) => matchesGame(e, N.gameAlerts));
     const list = this.wanted(entries).filter((e) => !alerts.includes(e));
@@ -105,6 +108,7 @@ class Notifier {
   /** Envoie sur Discord et ntfy (ceux qui sont activés et configurés). Renvoie le nombre de canaux utilisés. */
   async sendRemote(u, N = this.getSettings().notifications) {
     const jobs = [];
+    u = Object.assign({}, u, { title: this.tr(u.title), text: this.tr(u.text) });
     if (N.discord.enabled && DISCORD_RE.test(N.discord.url)) jobs.push(this.sendDiscord(N.discord.url, u).catch((e) => { this.log.warn("Discord : " + e.message); throw e; }));
     if (N.ntfy.enabled && NTFY_TOPIC_RE.test(N.ntfy.topic)) jobs.push(this.sendNtfy(N.ntfy, u).catch((e) => { this.log.warn("ntfy : " + e.message); throw e; }));
     const r = await Promise.allSettled(jobs);
