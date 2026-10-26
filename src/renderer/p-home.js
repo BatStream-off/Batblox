@@ -22,21 +22,31 @@ B.pages.home = {
     B.clear(box);
     const s = B.S.snap || {};
     const me = s.me;
-    box.append(h("div", { class: "grid g2" },
-      h("div", { class: "card" }, h("h3", { class: "eyebrow" }, "Roblox"), h("div", { class: "row" }, me ? B.dot(me.status) : h("span", { class: "dot off" }), h("b", {}, me ? B.statusLabel(me.status) : "Statut non disponible")),
-        me && me.status === "jeu" && me.place ? h("div", { class: "muted" }, "Jeu actuel : " + me.place) : h("div", { class: "muted small" }, B.S.settings.monitoring.showMyStatus ? "Mis à jour à chaque vérification." : "Active « Afficher mon propre statut » dans les réglages.")),
-      h("div", { class: "card" }, h("h3", { class: "eyebrow" }, "Lanceur"), h("div", { id: "home-inst", class: "muted" }, "…"),
-        h("div", { class: "muted small", id: "home-target", style: "margin-top:4px" }, this.targetText()),
-        h("div", { id: "home-upd", class: "small", style: "margin-top:4px" }),
-        h("div", { class: "row", style: "margin-top:12px" },
-          h("button", { class: "btn pri", id: "home-launch", disabled: this.launching, onclick: () => this.launch() }, this.launching ? "Lancement…" : "🎮 Lancer Roblox"),
-          h("button", { class: "btn ghost sm", title: "Choisir un autre jeu", onclick: () => B.go("discover") }, "Autre jeu…")))));
+    const showMine = B.S.settings.monitoring.showMyStatus;
+    // Bandeau principal : mon statut, le jeu qui sera lancé et le bouton Lancer, sur une seule ligne (avant : deux cartes à moitié vides).
+    box.append(h("div", { class: "card launch" },
+      h("div", { class: "launch-status" }, me ? B.dot(me.status) : h("span", { class: "dot s-off" }),
+        h("div", { class: "min0" }, h("b", {}, me ? B.statusLabel(me.status) : "Statut non disponible"),
+          h("div", { class: "muted small" }, me && me.status === "jeu" && me.place ? "Joue à " + me.place : showMine ? "Mis à jour à chaque vérification." : "Active « Afficher mon propre statut » dans les réglages."))),
+      h("div", { class: "launch-info" },
+        h("div", { class: "launch-target", id: "home-target" }, this.targetText()),
+        h("div", { id: "home-inst", class: "muted small" }, "Recherche de Roblox…"),
+        h("div", { id: "home-upd", class: "small" })),
+      h("div", { class: "launch-act" },
+        h("button", { class: "btn ghost", title: "Choisir un autre jeu", onclick: () => B.go("discover") }, "Choisir un jeu"),
+        h("button", { class: "btn pri lg", id: "home-launch", disabled: this.launching, onclick: () => this.launch() }, this.launching ? "Lancement…" : "🎮 Lancer Roblox"))));
+    // Compteurs du compte : un clic ouvre l'onglet correspondant de « Mon profil ».
+    const counts = [["friends", "Amis", s.friends, "friends"], ["requests", "Demandes", s.requests, "mail"], ["followers", "Abonnés", s.followers, "accounts"],
+      ["following", "Abonnements", s.following, "follow"], ["watch", "Profils suivis", s.watched, "watch"]];
+    box.append(h("div", { class: "counts", role: "list", "aria-label": "Mon compte en chiffres" }, counts.map(([tab, label, n, ico]) =>
+      h("button", { class: "count" + (tab === "requests" && n > 0 ? " hot" : ""), role: "listitem", title: "Ouvrir « " + label + " »", onclick: () => { B.pages.profile.tab = tab; B.go("profile"); } },
+        h("span", { class: "count-ico" }, B.icon(ico)), h("span", { class: "count-txt" }, h("b", { title: n == null ? "" : B.num(n) }, B.numShort(n)), h("span", {}, label))))));
     box.append(h("div", { id: "home-friends" }), h("div", { id: "home-recent" }), h("div", { id: "home-trend" }), h("div", { id: "home-games" }));
     this.fillRecent();
     this.fillTrend();
     this.fillFriends();
     this.fillUpdate();
-    B.call("roblox:status").then((r) => { const el = B.$("#home-inst"); if (el) el.textContent = !r.windows ? "Disponible sous Windows uniquement." : r.installed ? `Roblox détecté · instances ouvertes : ${r.instances.length}` : "Roblox n'est pas installé."; }).catch(() => {});
+    B.call("roblox:status").then((r) => { const el = B.$("#home-inst"); if (el) el.textContent = !r.windows ? "Disponible sous Windows uniquement." : !r.installed ? "Roblox n'est pas installé sur ce PC." : r.instances.length ? `Roblox installé, ${r.instances.length} fenêtre${r.instances.length > 1 ? "s" : ""} ouverte${r.instances.length > 1 ? "s" : ""}.` : "Roblox installé, aucune fenêtre ouverte."; }).catch(() => {});
   },
   // Rappel discret : visible seulement quand une mise à jour de Roblox est disponible (vérification mémorisée 10 min).
   async fillUpdate() {
@@ -160,7 +170,8 @@ B.pages.home = {
   },
   targetText() {
     const t = this.target();
-    return t ? "Lance : " + t.name + " (" + t.from + ")" : "Aucun jeu récent : Batblox te demandera lequel lancer.";
+    return t ? h("span", {}, h("span", { class: "muted small launch-lbl" }, t.from === "favori" ? "Prochain lancement, ton premier favori" : "Prochain lancement, ton dernier jeu"), h("b", { title: t.name }, t.name))
+      : h("span", {}, h("span", { class: "muted small launch-lbl" }, "Prochain lancement"), h("b", {}, "Batblox te demandera quel jeu lancer"));
   },
   async askGame() {
     const i = h("input", { type: "text", placeholder: "Identifiant ou lien du jeu (ex. https://www.roblox.com/games/920587237/…)", "aria-label": "Jeu à lancer",

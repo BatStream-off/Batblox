@@ -31,7 +31,7 @@
   const tmpFull = mk(), tmpHalf = mk(), halo = mk();
 
   const active = () =>
-    !document.hidden && root.dataset.theme === "batman" && root.dataset.fx !== "0" && root.dataset.lightning !== "0" && root.dataset.anim !== "0" &&
+    !document.hidden && !root.classList.contains("intro-on") && root.dataset.theme === "batman" && root.dataset.fx !== "0" && root.dataset.lightning !== "0" && root.dataset.anim !== "0" &&
     root.dataset.potato !== "1" && !reduce.matches;
 
   // ---------- Géométrie ----------

@@ -40,6 +40,25 @@ h1 { font-size: 22px; margin: 0 0 4px; } h2 { font-size: 16px; margin: 0 0 8px; 
 :focus-visible { outline: 2px solid var(--acc2); outline-offset: 2px; }
 
 #app { display: flex; flex-direction: column; height: 100%; position: relative; z-index: 1; }
+/* Barre de titre personnalisée (remplace celle de Windows) : zone de glisser-déposer + boutons réduire / agrandir / fermer.
+   Fondue dans le décor : dégradé translucide, logo, titre teinté de l'accent du thème, coins arrondis comme la fenêtre Windows 11. */
+#titlebar { flex: 0 0 auto; display: flex; align-items: stretch; justify-content: space-between; height: 32px; padding-left: 12px; -webkit-app-region: drag; position: relative; z-index: 3; border-radius: 8px 8px 0 0;
+  background: linear-gradient(to bottom, color-mix(in srgb, var(--bg) 82%, transparent), color-mix(in srgb, var(--bg) 46%, transparent)); backdrop-filter: blur(10px);
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 42%, transparent); }
+#titlebar.is-max { border-radius: 0; }
+#titlebar .tb-title { align-self: center; display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; letter-spacing: .05em; color: color-mix(in srgb, var(--acc) 62%, var(--muted)); transition: opacity .2s; }
+#titlebar .tb-title img { width: 16px; height: 16px; border-radius: 4px; object-fit: cover; box-shadow: 0 0 0 1px color-mix(in srgb, var(--text) 14%, transparent); }
+#titlebar.blur .tb-title, #titlebar.blur .tb-ctl { opacity: .5; }
+#titlebar .tb-ctl { display: flex; -webkit-app-region: no-drag; transition: opacity .2s; }
+#titlebar .tb-btn { width: 46px; height: 100%; display: grid; place-items: center; padding: 0; border: 0; border-radius: 0; background: transparent; color: var(--muted); cursor: default; transition: background-color .12s, color .12s; }
+#titlebar .tb-btn svg { width: 10px; height: 10px; fill: none; stroke: currentColor; stroke-width: 1; }
+#titlebar .tb-btn:hover { background: color-mix(in srgb, var(--text) 11%, transparent); color: var(--text); }
+#titlebar .tb-btn:active { background: color-mix(in srgb, var(--text) 18%, transparent); }
+#titlebar .tb-close { border-top-right-radius: 8px; } #titlebar.is-max .tb-close { border-top-right-radius: 0; }
+#titlebar .tb-close:hover, #titlebar .tb-close:active { background: #e81123; color: #fff; }
+#titlebar .tb-btn:focus-visible { outline-offset: -3px; }
+#titlebar .i-rest, #titlebar.is-max .i-max { display: none; } #titlebar.is-max .i-rest { display: block; }
+:root[data-potato="1"] #titlebar { backdrop-filter: none; background: var(--bg); }
 .top { display: flex; align-items: center; gap: 12px; height: 54px; padding: 0 16px; border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--card) 88%, transparent); backdrop-filter: blur(8px); }
 .brand { display: flex; align-items: center; gap: 10px; font-weight: 800; letter-spacing: .12em; }
 .brand img { height: 40px; width: auto; border-radius: 12px; }
@@ -1231,3 +1250,163 @@ button.tabtile b.tt { font-size: 20px; font-weight: 700; letter-spacing: -.01em;
 .tabs button.tabtile b.tt { font-size: 19px; }
 @media (max-width: 1040px) { .tabs button.tabtile b.tt { font-size: 16px; } }
 
+
+/* ---------- Thème Batman : finitions UI / UX (v1.5.7) ----------
+   Uniquement des surcharges du thème Batman : aucune mise en page ni structure modifiée. Les animations respectent « Animations », le mode potato et « mouvement réduit ». */
+/* Défilement : fin, discret, doré au survol */
+:root[data-theme="batman"] ::-webkit-scrollbar { width: 10px; height: 10px; }
+:root[data-theme="batman"] ::-webkit-scrollbar-track, :root[data-theme="batman"] ::-webkit-scrollbar-corner { background: transparent; }
+:root[data-theme="batman"] ::-webkit-scrollbar-thumb { background: rgba(255,255,255,.14); border-radius: 99px; border: 3px solid transparent; background-clip: padding-box; }
+:root[data-theme="batman"] ::-webkit-scrollbar-thumb:hover { background: rgba(255,209,0,.62); border: 3px solid transparent; background-clip: padding-box; }
+/* Surfaces : verre fumé avec reflet haut, liseré doré qui s'estompe, bordure plus fine */
+:root[data-theme="batman"] .card, :root[data-theme="batman"] .stat { border-color: rgba(255,255,255,.075);
+  background-image: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,0) 42%), linear-gradient(135deg, rgba(255,209,0,.035), transparent 45%); }
+:root[data-theme="batman"] .card:not(.empty)::after { content: ""; position: absolute; top: -1px; left: 56px; right: 18px; height: 1px; pointer-events: none; background: linear-gradient(90deg, rgba(255,209,0,.55), rgba(255,209,0,.10) 60%, transparent); }
+:root[data-theme="batman"] .stat:hover { border-color: rgba(255,209,0,.32); }
+:root[data-theme="batman"] #titlebar { border-bottom-color: rgba(255,209,0,.12); }
+/* Navigation : survol qui glisse, icône dorée, appui, focus lisible */
+:root[data-theme="batman"] nav button { border-radius: 10px; transition: background .18s, color .18s, transform .18s var(--ease), box-shadow .18s; }
+:root[data-theme="batman"] nav button:hover:not(.on) { background: linear-gradient(90deg, rgba(255,209,0,.10), rgba(255,209,0,0) 88%); color: var(--text); transform: translateX(2px); }
+:root[data-theme="batman"] nav button:hover:not(.on) .ico { color: var(--acc); }
+:root[data-theme="batman"] nav button:active { transform: scale(.985); }
+:root[data-theme="batman"] nav button.on { text-shadow: 0 0 14px rgba(255,209,0,.35); }
+:root[data-theme="batman"] nav button:focus-visible { outline-offset: -2px; }
+/* Boutons : relief discret, ghost doré, bouton principal avec reflet qui passe au survol, désactivé explicite */
+:root[data-theme="batman"] .btn { border-radius: 9px; }
+:root[data-theme="batman"] .btn:not(.pri):not(.ghost):not(.bad) { border: 1px solid rgba(255,255,255,.09); background-image: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,0)); }
+:root[data-theme="batman"] .btn.ghost:hover:not(:disabled) { background: rgba(255,209,0,.09); color: var(--acc); }
+:root[data-theme="batman"] .btn:disabled { cursor: not-allowed; filter: saturate(.45); }
+:root[data-theme="batman"] .btn.pri { position: relative; overflow: hidden; }
+:root[data-theme="batman"] .btn.pri::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(105deg, transparent 38%, rgba(255,255,255,.5) 50%, transparent 62%); transform: translateX(-130%); }
+:root[data-theme="batman"] .btn.pri:hover:not(:disabled)::after { transform: translateX(130%); transition: transform .7s var(--ease); }
+:root[data-theme="batman"][data-potato="1"] .btn.pri::after { display: none; }
+/* Champs : fond enfoncé, survol doré discret (le focus garde son halo) */
+:root[data-theme="batman"] input[type=text], :root[data-theme="batman"] input[type=number], :root[data-theme="batman"] input[type=time], :root[data-theme="batman"] input[type=search], :root[data-theme="batman"] input[type=password], :root[data-theme="batman"] select, :root[data-theme="batman"] textarea {
+  background-image: linear-gradient(180deg, rgba(0,0,0,.38), rgba(0,0,0,.12)); border-color: rgba(255,255,255,.12); box-shadow: inset 0 1px 3px rgba(0,0,0,.55); }
+:root[data-theme="batman"] input:hover:not(:focus), :root[data-theme="batman"] select:hover:not(:focus), :root[data-theme="batman"] textarea:hover:not(:focus) { border-color: rgba(255,209,0,.32); }
+:root[data-theme="batman"] .chip:hover { border-color: rgba(255,209,0,.5); color: var(--text); }
+:root[data-theme="batman"] .switch i::after { box-shadow: 0 1px 4px rgba(0,0,0,.5); }
+:root[data-theme="batman"] :focus-visible { outline-offset: 3px; }
+/* Amis : la pastille se soulève, l'avatar s'illumine */
+:root[data-theme="batman"] .fbub .avw { transition: transform .2s var(--ease); }
+:root[data-theme="batman"] .fbub .avw .av { transition: box-shadow .2s, opacity .2s; }
+:root[data-theme="batman"] .fbub:hover .avw { transform: translateY(-2px); }
+:root[data-theme="batman"] .fbub:hover .avw .av { box-shadow: 0 0 0 2px rgba(255,209,0,.75), 0 0 22px -4px rgba(255,209,0,.55); }
+:root[data-theme="batman"] .fbub.off:hover .avw .av { opacity: 1; }
+:root[data-theme="batman"] .ev:hover { background-color: color-mix(in srgb, var(--card) 80%, rgba(255,209,0,.12)); }
+/* Fenêtres, menus, notifications : fond assombri et flouté, liseré doré, ombre profonde */
+:root[data-theme="batman"] .scrim { background: radial-gradient(ellipse at 50% 38%, rgba(10,11,13,.5), rgba(0,0,0,.82)); backdrop-filter: blur(6px) saturate(.85); }
+:root[data-theme="batman"] .modal { border-radius: 16px; background-image: linear-gradient(180deg, rgba(255,209,0,.055), rgba(255,209,0,0) 96px); box-shadow: 0 40px 90px -24px #000, 0 0 0 1px rgba(255,209,0,.10), 0 0 60px -30px rgba(255,209,0,.35); }
+:root[data-theme="batman"] .menu { border-color: rgba(255,209,0,.18); background-color: color-mix(in srgb, var(--card) 94%, transparent); backdrop-filter: blur(12px); box-shadow: 0 24px 50px -16px #000, 0 0 40px -26px rgba(255,209,0,.4); }
+:root[data-theme="batman"] .menu button:hover { background: linear-gradient(90deg, rgba(255,209,0,.12), rgba(255,209,0,.02)); }
+:root[data-theme="batman"] .toast { border-left-color: var(--acc); background-color: color-mix(in srgb, var(--card) 94%, transparent); backdrop-filter: blur(10px); box-shadow: 0 18px 40px -16px #000, 0 0 30px -20px rgba(255,209,0,.5); }
+:root[data-theme="batman"] .toast.ok { border-left-color: var(--ok); } :root[data-theme="batman"] .toast.bad { border-left-color: var(--bad); }
+/* Entrée des pages : les blocs montent légèrement l'un après l'autre */
+@media (prefers-reduced-motion: no-preference) {
+  :root[data-theme="batman"]:not([data-anim="0"]):not([data-potato="1"]) .page > * { animation: bm-rise .42s var(--ease) both; }
+  :root[data-theme="batman"]:not([data-anim="0"]):not([data-potato="1"]) .page > :nth-child(2) { animation-delay: .04s; }
+  :root[data-theme="batman"]:not([data-anim="0"]):not([data-potato="1"]) .page > :nth-child(3) { animation-delay: .08s; }
+  :root[data-theme="batman"]:not([data-anim="0"]):not([data-potato="1"]) .page > :nth-child(4) { animation-delay: .12s; }
+  :root[data-theme="batman"]:not([data-anim="0"]):not([data-potato="1"]) .page > :nth-child(n+5) { animation-delay: .16s; }
+}
+@keyframes bm-rise { from { opacity: 0; transform: translateY(8px); } }
+
+
+/* =====================================================================================
+   v1.5.8 — barre unique, accueil plus utile, couleur de marque
+   ===================================================================================== */
+
+/* -- Couleur de marque : le bleu du logo et de l'intro remplace le violet pour Clair, Sombre et Auto.
+      L'intro se fond désormais dans une interface de la même famille de couleurs. -- */
+:root {
+  --bg:#E6ECF8; --card:#F4F7FD; --card2:#E0E7F5; --line:rgba(60,95,170,.17); --hover:rgba(37,99,242,.09);
+  --text:#13203B; --muted:#55617D; --acc:#1D52D9; --acc2:#3B76F6; --acc-soft:rgba(37,99,242,.12);
+  --btn:#F8FAFE; --btn-h:#FFFFFF; --pri:#2563F2; --pri-h:#3A74F5; --pri-t:#FFFFFF;
+  --field:#E9EEF8; --field-b:rgba(60,95,170,.32);
+  --c-hi:rgba(255,255,255,.85); --c-lo:rgba(70,105,180,.12); --c-in:rgba(60,95,170,.19); --c-drop:rgba(40,75,150,.22);
+}
+:root[data-theme="dark"] {
+  --bg:#0F1628; --card:#18223A; --card2:#131C31; --line:rgba(130,165,255,.12); --hover:rgba(79,134,255,.12);
+  --text:#EAF0FF; --muted:#9DAACA; --acc:#8FB4FF; --acc2:#4F86FF; --acc-soft:rgba(79,134,255,.17);
+  --btn:#212C47; --btn-h:#2A3656; --pri:#3A74F5; --pri-h:#5087FF; --pri-t:#FFFFFF;
+  --field:#0F1627; --field-b:rgba(130,165,255,.26);
+  --c-hi:rgba(255,255,255,.045); --c-lo:rgba(0,0,0,.24); --c-in:rgba(0,0,0,.40); --c-drop:rgba(2,6,20,.50);
+}
+@media (prefers-color-scheme: dark) { :root[data-theme="auto"] {
+  --bg:#0F1628; --card:#18223A; --card2:#131C31; --line:rgba(130,165,255,.12); --hover:rgba(79,134,255,.12);
+  --text:#EAF0FF; --muted:#9DAACA; --acc:#8FB4FF; --acc2:#4F86FF; --acc-soft:rgba(79,134,255,.17);
+  --btn:#212C47; --btn-h:#2A3656; --pri:#3A74F5; --pri-h:#5087FF; --pri-t:#FFFFFF;
+  --field:#0F1627; --field-b:rgba(130,165,255,.26);
+  --c-hi:rgba(255,255,255,.045); --c-lo:rgba(0,0,0,.24); --c-in:rgba(0,0,0,.40); --c-drop:rgba(2,6,20,.50);
+} }
+/* Fond : un seul halo bleu, discret (le halo rose ne correspondait à rien de la marque) */
+:root:is([data-theme="light"], [data-theme="dark"], [data-theme="auto"]) body { background:
+  radial-gradient(820px 460px at 92% -140px, color-mix(in srgb, var(--acc2) 16%, transparent), transparent 70%), var(--bg); background-attachment: fixed; }
+/* Couvertures de jeux sans image : dégradé bleu de la marque au lieu du violet */
+:root:is([data-theme="light"], [data-theme="dark"], [data-theme="auto"]) .tile-cover,
+:root:is([data-theme="light"], [data-theme="dark"], [data-theme="auto"]) .game-cover:not(.fav):not(.img),
+:root:is([data-theme="light"], [data-theme="dark"], [data-theme="auto"]) .exe-ico { background-image: linear-gradient(135deg, #3B76F6, #0F3FB8); }
+
+/* -- Barre unique : remplace barre de titre + en-tête. Collée en haut, pleine largeur, toute la zone vide déplace la fenêtre. -- */
+#titlebar.top { flex: 0 0 auto; height: 56px; margin: 0; padding: 0 0 0 16px; gap: 12px; border: 0; border-radius: 0; position: relative; z-index: 3;
+  -webkit-app-region: drag; backdrop-filter: none;
+  background: color-mix(in srgb, var(--card) 55%, var(--bg)); box-shadow: 0 1px 0 var(--line); }
+#titlebar.top { align-items: center; }
+#titlebar .pill { min-height: 30px; padding: 4px 12px; box-shadow: none; border: 1px solid var(--line); background: color-mix(in srgb, var(--card) 60%, transparent); }
+#titlebar .acc-btn { min-height: 34px; box-shadow: none; border: 1px solid var(--line); }
+#titlebar .brand { gap: 10px; }
+#titlebar .brand img { height: 32px; border-radius: 10px; }
+#titlebar .brand span { font-size: 12.5px; letter-spacing: .22em; }
+#titlebar .pill, #titlebar #acc-switch, #titlebar .tb-ctl, #titlebar button { -webkit-app-region: no-drag; }
+#titlebar .tb-ctl { align-self: stretch; margin-left: 4px; }
+#titlebar .tb-btn { height: 100%; }
+#titlebar .tb-close { border-top-right-radius: 0; }
+#titlebar.blur .brand, #titlebar.blur #status-pill { opacity: .6; }
+:root[data-theme="batman"] #titlebar.top { background: color-mix(in srgb, var(--card) 72%, transparent); box-shadow: 0 1px 0 rgba(255,209,0,.22), 0 12px 32px -20px rgba(255,209,0,.30); }
+:root[data-theme="joker"] #titlebar.top, :root[data-theme="bat"] #titlebar.top { background: color-mix(in srgb, var(--card) 70%, var(--bg)); }
+:root[data-theme="inde"] #titlebar.top { background: color-mix(in srgb, #fff 70%, var(--bg)); }
+:root[data-shadow="0"] #titlebar.top, :root[data-potato="1"] #titlebar.top { border: 0; border-bottom: 1px solid var(--line); box-shadow: none; }
+@media (max-width: 860px) { #titlebar.top { padding-left: 10px; } #titlebar .brand span { display: none; } }
+
+/* -- Accueil : bandeau « Lancer » -- */
+.card.launch { display: grid; grid-template-columns: minmax(170px, .8fr) minmax(240px, 1.6fr) auto; align-items: center; gap: 18px 24px; padding: 20px 22px; margin-bottom: var(--gap); }
+.launch-status { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.launch-status .dot { width: 12px; height: 12px; }
+.launch-status b { display: block; font-size: 16px; }
+.launch-info { min-width: 0; padding-left: 22px; border-left: 1px solid var(--line); display: flex; flex-direction: column; gap: 3px; }
+.launch-target > span { display: flex; flex-direction: column; min-width: 0; }
+.launch-target b { font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.launch-lbl { display: block; }
+.launch-act { display: flex; align-items: center; gap: 8px; justify-self: end; }
+.btn.lg { min-height: 44px; padding: 10px 20px; font-size: 15px; }
+@media (max-width: 1000px) {
+  .card.launch { grid-template-columns: 1fr auto; }
+  .launch-info { grid-column: 1 / -1; grid-row: 2; padding: 12px 0 0; border-left: 0; border-top: 1px solid var(--line); }
+}
+@media (max-width: 640px) { .card.launch { grid-template-columns: 1fr; } .launch-act { justify-self: stretch; } .launch-act .btn.pri { flex: 1; } }
+
+/* -- Accueil : compteurs du compte (cliquables) -- */
+.counts { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; margin-bottom: var(--gap); }
+.count { display: flex; align-items: center; gap: 12px; min-width: 0; padding: 14px 16px; border: 1px solid transparent; border-radius: var(--r); background: var(--card); color: inherit; font: inherit; text-align: left; cursor: pointer;
+  box-shadow: var(--sh-s); transition: transform .3s var(--ease-clay), box-shadow .2s, border-color .15s; }
+.count:hover { transform: translateY(-2px); border-color: color-mix(in srgb, var(--acc2) 40%, transparent); }
+.count:active { transform: translateY(0) scale(.99); }
+.count-ico { width: 36px; height: 36px; flex: none; display: grid; place-items: center; border-radius: 11px; color: var(--acc); background: var(--acc-soft); }
+.count-txt { min-width: 0; display: flex; flex-direction: column; }
+.count-txt b { font-size: 22px; font-weight: 750; line-height: 1.1; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.count-txt span { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.count.hot .count-ico { background: var(--pri); color: var(--pri-t); }
+@media (max-width: 1060px) { .counts { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 640px) { .counts { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+:root[data-theme="batman"] .count { background-color: color-mix(in srgb, var(--card) 80%, transparent); border-color: rgba(255,255,255,.075); border-radius: 12px; }
+:root[data-theme="batman"] .count:hover { border-color: rgba(255,209,0,.32); }
+:root[data-theme="batman"] .count-ico { box-shadow: 0 0 18px -4px rgba(255,209,0,.45); }
+:root[data-theme="batman"] .count-txt b { font-family: var(--bm-font); }
+:root[data-shadow="0"] .count, :root[data-potato="1"] .count { box-shadow: none; border-color: var(--line); }
+
+/* -- Rail des jeux : tuiles un peu plus compactes (on en voit davantage sans défiler) -- */
+.rail { grid-auto-columns: 142px; }
+.tile-cover { font-size: 30px; }
+
+/* La zone de contenu reçoit le focus à la fin de l'intro (pour le clavier) : pas de cadre de focus autour de toute la page. */
+#view:focus, #view:focus-visible { outline: none; }

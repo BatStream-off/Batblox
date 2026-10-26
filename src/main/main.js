@@ -187,13 +187,22 @@ function windowBg() {
   return THEME_BG[t];
 }
 
+// Intro vidéo : jouée une seule fois, au lancement de l'application. Pas en démarrage réduit (fenêtre cachée : on n'allait pas jouer du son dans le vide),
+// ni quand la fenêtre est recréée plus tard depuis la zone de notification. Le fond de la fenêtre prend le bleu de la vidéo (images de début et de fin
+// en aplat) : aucun flash de la couleur du thème avant la première image.
+const INTRO_BG = "#0F5FFD";
+let introPlayed = false;
+
 function createWindow(hidden) {
+  const intro = !hidden && !introPlayed;
+  introPlayed = true;
   win = new BrowserWindow({
-    width: 1180, height: 780, minWidth: 900, minHeight: 600, show: !hidden, title: "Batblox", icon: ICON, backgroundColor: windowBg(), autoHideMenuBar: true,
-    webPreferences: { preload: path.join(__dirname, "preload.js"), contextIsolation: true, sandbox: true, nodeIntegration: false, spellcheck: false }
+    width: 1180, height: 780, minWidth: 900, minHeight: 600, show: !hidden, title: "Batblox", icon: ICON, backgroundColor: intro ? INTRO_BG : windowBg(), autoHideMenuBar: true, frame: false,
+    // autoplayPolicy : sans cela, Chromium refuse de lancer une vidéo AVEC son sans geste de l'utilisateur.
+    webPreferences: { preload: path.join(__dirname, "preload.js"), contextIsolation: true, sandbox: true, nodeIntegration: false, spellcheck: false, autoplayPolicy: "no-user-gesture-required" }
   });
   win.setMenuBarVisibility(false);
-  win.loadFile(INDEX);
+  win.loadFile(INDEX, intro ? { query: { intro: "1" } } : undefined);
   // F12 ou Ctrl+Maj+I : outils de développement (console de l'interface)
   win.webContents.on("before-input-event", (e, input) => {
     if (input.type !== "keyDown") return;
@@ -204,6 +213,9 @@ function createWindow(hidden) {
   win.on("close", (e) => {
     if (!quitting && settings.system.trayOnClose) { e.preventDefault(); win.hide(); }
   });
+  // Barre de titre personnalisée : l'interface affiche l'état agrandi / restauré
+  const winState = () => send("winstate", { maximized: !!(win && !win.isDestroyed() && (win.isMaximized() || win.isFullScreen())) });
+  ["maximize", "unmaximize", "enter-full-screen", "leave-full-screen", "restore"].forEach((ev) => win.on(ev, winState));
   win.on("closed", () => { win = null; });
 }
 function showWindow() { if (!win) createWindow(false); if (win.isMinimized()) win.restore(); win.show(); win.focus(); }
@@ -726,6 +738,11 @@ const api = {
   "data:clearPresence": () => { data.clearPresenceStats(); return true; },
   "data:reset": () => { data.resetAll(); send("settings", settings); return true; },
   "shell:open": (url) => { openSafe(String(url)); return true; },
+  "win:minimize": () => { if (win && !win.isDestroyed()) win.minimize(); return true; },
+  "win:toggleMax": () => { if (win && !win.isDestroyed()) { if (win.isMaximized()) win.unmaximize(); else win.maximize(); } return true; },
+  "win:close": () => { if (win && !win.isDestroyed()) win.close(); return true; },   // passe par la logique « réduire dans la zone de notification »
+  "intro:done": () => { if (win && !win.isDestroyed()) win.setBackgroundColor(windowBg()); return true; },   // fin de l'intro : le fond de la fenêtre reprend la couleur du thème
+  "win:state": () => ({ maximized: !!(win && !win.isDestroyed() && (win.isMaximized() || win.isFullScreen())) }),
   "app:quit": () => { quitting = true; app.quit(); return true; }
 };
 

@@ -75,7 +75,9 @@ B.renderPage = (entering) => {
   // `enter` : apparition échelonnée des blocs, uniquement quand on change de page (pas à chaque rafraîchissement)
   try { p.render(view); } catch (e) { view.append(h("div", { class: "notice bad" }, "Impossible d'afficher cette page : " + e.message)); console.error(e); }
   const pg = view.querySelector(".page");
-  if (pg && entering === true) { pg.classList.add("enter"); setTimeout(() => pg.classList.remove("enter"), 900); }
+  // Pendant l'intro vidéo, pas d'animation d'entrée : intro.js fait apparaître les blocs lui-même au moment du fondu (et retirer la classe
+  // pendant la vidéo provoquerait un recalcul de style en pleine lecture).
+  if (pg && entering === true && !document.documentElement.classList.contains("intro-on")) { pg.classList.add("enter"); setTimeout(() => pg.classList.remove("enter"), 900); }
 };
 
 // ---------- Réglages (appliqués immédiatement) ----------

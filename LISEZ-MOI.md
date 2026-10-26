@@ -40,6 +40,21 @@ Chaque fichier contient `schemaVersion` pour permettre les futures migrations.
 | Bouton « Suivre » sur roblox.com | N'existe plus (il dépendait du navigateur) : on ajoute un profil par pseudo ou identifiant dans **Profils suivis**. |
 | Messages (chat Roblox) | Page **Messages** (menu de gauche) : conversations du compte actif, privées et de groupe, avec lecture de l'historique et réponse directe (Entrée pour envoyer, Maj+Entrée pour un retour à la ligne). Pastille de non-lus dans le menu ; rafraîchissement automatique tant que la page est ouverte (jamais fenêtre cachée). Roblox a supprimé en 2024 la boîte de réception « messages privés » entre joueurs : seul le chat est branché. |
 
+## Intro vidéo de lancement
+
+Au tout premier affichage de la fenêtre, une vidéo d'intro (`src/assets/intro/intro.mp4`, H.264 1080p, son d'origine) se joue seule, en plein cadre, sans contrôles et une seule fois, avec l'interface masquée dessous. À la fin, elle se dissout en fondu enchaîné sur l'écran principal déjà prêt.
+
+- Pas d'intro en démarrage réduit (`--cache` + « démarrer réduit »), ni quand la fenêtre est rouverte depuis la zone de notification.
+- Si la vidéo est absente ou illisible, l'application s'ouvre normalement (aucun blocage).
+- Pour changer la vidéo : remplacer `src/assets/intro/intro.mp4` (H.264 + AAC, `-movflags +faststart` conseillé). Réglages de durée dans `src/renderer/intro.js`.
+- Code : `src/renderer/intro.js`, calque `#intro` dans `index.html`, fenêtre dans `src/main/main.js` (`autoplayPolicy`, couleur de fond bleue de la vidéo).
+
+## Nouveautés de la version 1.5.7
+**Thème Batman : interface et confort d'utilisation**
+- Finitions UI / UX : panneaux en verre fumé avec reflet et liseré doré qui s'estompe, navigation qui réagit au survol (glissement, icône dorée, appui), boutons plus lisibles (relief discret, reflet sur le bouton principal, état désactivé explicite), champs enfoncés avec survol doré, barres de défilement fines, bulles d'amis qui s'illuminent au survol, fenêtres / menus / notifications plus nets (fond assombri et flouté, liseré doré), entrée des pages en cascade. Mise en page, couleurs de base et structure inchangées ; les animations suivent « Animations », le mode potato et « mouvement réduit ».
+**Fenêtre**
+- Barre de titre Windows remplacée par une barre de titre personnalisée intégrée à l'application (réduire, agrandir / restaurer, fermer ; glisser pour déplacer, double-clic pour agrandir). Elle se fond dans le décor (dégradé translucide, logo, titre teinté de l'accent du thème, coins arrondis comme la fenêtre Windows 11), s'atténue quand la fenêtre n'a plus le focus, et « Fermer » respecte toujours l'option de réduction dans la zone de notification.
+
 ## Nouveautés de la version 1.5.6
 **Thème Batman**
 - Éclairs refaits : de vrais éclairs d'orage (tracé irrégulier et ramifié, unique à chaque fois, cœur blanc et halo bleuté) frappent au loin derrière les toits de Gotham. Chaque éclair éclaire brièvement le ciel, les nuages, la pluie et les toits, avec parfois un second flash quelques instants plus tard. Ils restent derrière l'interface, peuvent être activés ou désactivés dans **Réglages › Apparence › Éclairs** (thème Batman uniquement), suivent l'interrupteur **Effets** et disparaissent en mode économe, si les animations sont coupées ou si le système demande moins de mouvement.
@@ -92,3 +107,11 @@ Si quelque chose ne fonctionne pas, le journal (Maintenance → Journaux) indiqu
 | Activité | Une seule page, **Activité**, regroupe trois onglets : **Historique**, **Statistiques** et **Notifications** (anciennement trois pages du menu). Les anciens raccourcis (clic sur une notification Windows, bouton 📜 d'un ami ou d'un profil suivi) ouvrent directement le bon onglet. La pastille de nouveaux événements est affichée sur « Activité » et disparaît à l'ouverture de l'onglet Historique. |
 La page Messages repose sur les API de chat de Roblox, non documentées officiellement : elle est testée avec des réponses simulées (tests automatiques), pas avec un vrai compte. Si Roblox change un format, l'erreur s'affiche dans la page.
 | Mises à jour (GitHub) | **Réglages → Mises à jour** : compare ta version à la dernière release de `BatStream-off/Batblox`, télécharge l'installeur, vérifie son empreinte SHA-256 (si GitHub la fournit), le lance puis ferme Batblox. Vérification automatique au démarrage (désactivable), jamais d'installation sans ton accord. Version portable : ouvre la page de la release. L'installeur n'est pas signé : Windows peut afficher SmartScreen. Non testé avec une vraie release : à valider après la première publication. |
+
+La lecture ne démarre qu'une fois la vidéo chargée et l'interface déjà dessinée sous le calque bleu (pré-roulage, quelques dixièmes de seconde invisibles) ; pendant la lecture rien ne bouge en dessous (animations en pause, éclairs et lueur de souris coupés), ce qui supprime les saccades. Si la vidéo est absente ou ne démarre pas, l'interface s'affiche directement.
+
+## Nouveautés v1.5.8
+- **Intro vidéo** : plus de saccades. Avant, la vidéo démarrait pendant le chargement de l'interface, l'interface était dévoilée sous la vidéo 1 s avant la fin (avec un recalcul de style à chaque image), et le décor animé repartait pendant le fondu.
+- **Une seule barre en haut** : logo, état du monitoring, compte et boutons de la fenêtre réunis (l'ancienne barre de titre affichait « Batblox » une deuxième fois).
+- **Accueil** : un bandeau unique avec ton statut, le jeu qui sera lancé et le bouton « Lancer Roblox », puis les compteurs du compte (amis, demandes, abonnés, abonnements, profils suivis), cliquables.
+- **Thèmes Clair, Sombre et Auto** : couleur d'accent bleue, celle du logo et de l'intro (au lieu du violet). Les thèmes Batcave, Joker, Batman et Inde ne changent pas.

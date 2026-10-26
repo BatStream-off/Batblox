@@ -2,23 +2,45 @@
 <html lang="fr" data-theme="auto">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://*.rbxcdn.com; media-src data: blob:; font-src 'self' data:; connect-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://*.rbxcdn.com; media-src 'self' data: blob:; font-src 'self' data:; connect-src 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Batblox</title>
+<style>
+/* Intro vidéo : volontairement en ligne pour exister dès le tout premier rendu, avant même app.css. */
+#intro{position:fixed;inset:0;z-index:2147483647;overflow:hidden;background:#0F5FFD;-webkit-app-region:drag;-webkit-user-select:none;user-select:none}
+/* Calque propre au compositeur : le fondu final ne redessine rien. */
+#intro{will-change:opacity;contain:strict}
+/* Pendant l'intro l'interface est dessinée UNE fois sous le calque opaque, avant la lecture (voir intro.js), puis tout est figé :
+   animations CSS en pause, transitions coupées. Rien ne bouge sous la vidéo : tout le GPU/CPU va à son décodage et à son affichage. */
+html.intro-on body *:not(#intro):not(#intro *),html.intro-on body *::before,html.intro-on body *::after,html.intro-on::before,html.intro-on::after,html.intro-on body::before,html.intro-on body::after{animation-play-state:paused!important;transition:none!important}
+html.intro-fade #bat-signal *,html.intro-fade::before,html.intro-fade::after,html.intro-fade body::after,html.intro-fade .top::after,html.intro-fade #status-pill *{animation-play-state:paused!important}
+#intro video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#0F5FFD;pointer-events:none}
+</style>
 <link rel="stylesheet" href="app.css">
 </head>
 <body>
+<!-- Intro de lancement : première chose dans le DOM, son src est donc demandé dès l'analyse du HTML. Pas d'autoplay en attribut :
+     intro.js décide quand lancer la lecture (après le pré-roulage, jamais en démarrage réduit). Ni controls, ni loop. Le son reste actif (pas de muted). -->
+<div id="intro" aria-hidden="true"><video id="intro-video" src="../assets/intro/intro.mp4" preload="auto" playsinline disablepictureinpicture disableremoteplayback tabindex="-1"></video></div>
+<script src="intro.js"></script>
 <div id="bat-signal" aria-hidden="true">
   <div class="bs-box"><i class="bs-beam"></i><div class="bs-rainwrap"><i class="bs-rain"></i></div><div class="bs-clouds"><i></i></div><i class="bs-sky"></i><i class="bs-logo"></i></div>
   <div class="bs-storm"><i class="bs-glow"></i><i class="bs-cloudlit"></i><i class="bs-rainlit"></i><canvas class="bs-bolt"></canvas></div>
   <i class="bs-city"></i><i class="bs-citylit"></i>
 </div>
 <div id="app">
-  <header class="top">
+  <!-- Une seule barre en haut : logo, état du monitoring, compte, boutons de la fenêtre. Toute la zone vide sert à déplacer la fenêtre
+       (double-clic : agrandir). Elle remplace l'ancienne barre de titre séparée + en-tête, qui affichaient deux fois « Batblox ». -->
+  <header id="titlebar" class="top" aria-label="Barre de titre">
     <div class="brand"><img src="../assets/logo-header.png" alt=""><span>BATBLOX</span></div>
     <div class="grow"></div>
     <div id="status-pill" class="pill" title="État du monitoring"></div>
     <div id="acc-switch"></div>
+    <div class="tb-ctl" role="toolbar" aria-label="Fenêtre">
+      <button type="button" class="tb-btn" data-act="min" title="Réduire" aria-label="Réduire"><svg viewBox="0 0 10 10" aria-hidden="true"><path d="M0 5.5h10"/></svg></button>
+      <button type="button" class="tb-btn" data-act="max" title="Agrandir" aria-label="Agrandir"><svg class="i-max" viewBox="0 0 10 10" aria-hidden="true"><rect x=".5" y=".5" width="9" height="9"/></svg><svg class="i-rest" viewBox="0 0 10 10" aria-hidden="true"><path d="M2.5 2.5V.5h7v7h-2"/><rect x=".5" y="2.5" width="7" height="7"/></svg></button>
+      <button type="button" class="tb-btn tb-close" data-act="close" title="Fermer" aria-label="Fermer"><svg viewBox="0 0 10 10" aria-hidden="true"><path d="M0 0l10 10M10 0L0 10"/></svg></button>
+    </div>
   </header>
   <div class="body">
     <nav id="nav" aria-label="Navigation principale"></nav>
@@ -31,6 +53,7 @@
 <script src="guard.js"></script>
 <script src="lib.js"></script>
 <script src="sound.js"></script>
+<script src="titlebar.js"></script>
 <script src="shell.js"></script>
 <script src="p-home.js"></script>
 <script src="p-friends.js"></script>
