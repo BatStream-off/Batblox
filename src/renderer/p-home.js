@@ -184,7 +184,7 @@ B.pages.home = {
     if (this.launching) return;
     const t = this.target() || (await this.askGame());
     if (!t) return;
-    const paint = () => { const b = B.$("#home-launch"); if (b) { b.disabled = !!this.launching; b.textContent = this.launching ? "Lancement…" : "🎮 Lancer Roblox"; } };
+    const paint = () => { const b = B.$("#home-launch"); if (b) { b.disabled = !!this.launching; B.label(b, this.launching ? "Lancement…" : "🎮 Lancer Roblox"); } };
     this.launching = true; paint();
     const r = await B.run(() => B.call("roblox:launch", { placeId: t.placeId }));
     this.launching = false; paint();

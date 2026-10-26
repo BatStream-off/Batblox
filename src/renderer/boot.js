@@ -18,7 +18,7 @@
   const paintGlow = () => { mq = 0; root.style.setProperty("--mx", mx + "px"); root.style.setProperty("--my", my + "px"); };
   window.addEventListener("mousemove", (e) => { mx = e.clientX; my = e.clientY; if (!mq && !root.classList.contains("intro-on")) mq = requestAnimationFrame(paintGlow); }, { passive: true });
   B.renderNav(); B.renderAccount(); B.renderStatus();
-  B.go(B.S.active ? "home" : "accounts");
+  B.go(B.S.active ? (B.S.settings.appearance.startPage || "home") : "accounts"); // page d'ouverture choisie dans les réglages
   ready();
   setInterval(() => { B.renderStatus(); }, 30000);
   setTimeout(() => B.pollChat(), 4000);

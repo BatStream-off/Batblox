@@ -37,6 +37,7 @@ function safeSettings(settings) {
   const s = JSON.parse(JSON.stringify(settings));
   s.notifications.discord.url = "";
   s.notifications.ntfy.topic = "";
+  if (s.backup) s.backup.dir = ""; // chemin propre à ce PC
   return s;
 }
 
@@ -50,7 +51,7 @@ class DataTools {
     return {
       app: APP_ID, version: 1, exportedAt: new Date().toISOString(),
       note: "Cette sauvegarde ne contient aucune information de connexion Roblox.",
-      data: { history: m.history.entries, watched: m.watched.profiles, stats: m.stats, settings: safeSettings(this.getSettings()) }
+      data: { history: m.history.entries, watched: m.watched.profiles, stats: m.stats, playtime: this.storage.get("playtime", () => null), settings: safeSettings(this.getSettings()) }
     };
   }
 
@@ -123,6 +124,7 @@ class DataTools {
     m.history.entries = []; m.watched.profiles = {}; m.stats.series = {}; m.stats.counts = {}; m.stats.pstats = { t: 0, d: {} };
     m.state.accounts = {};
     this.setSettings(JSON.parse(JSON.stringify(DEFAULT_SETTINGS)));
+    const pt = this.storage.get("playtime", () => null); if (pt && pt.acc) { pt.acc = {}; this.storage.dirty("playtime"); }
     for (const n of ["history", "watched", "stats", "state"]) this.storage.dirty(n);
     m.emit("update");
   }

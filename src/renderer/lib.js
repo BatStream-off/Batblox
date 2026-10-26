@@ -22,7 +22,74 @@ B.h = function (tag, attrs, ...kids) {
   kids.forEach(add);
   return el;
 };
-const h = B.h;
+const h = (...a) => B.h(...a);
+
+// ---------- Icônes au trait à la place des emojis (v1.5.9) ----------
+// Les libellés gardent leur emoji dans le code (lisible), mais à l'affichage un emoji en tête d'un bouton, d'un titre ou d'un bandeau
+// est remplacé par une icône SVG au trait, de la même famille que celles du menu : même épaisseur, couleur du thème, nette à toutes les tailles.
+// Les noms de jeux ou de joueurs ne sont jamais touchés (seuls les boutons, titres h1-h3, bandeaux .notice et pastilles .pill le sont).
+const _s = (d, fill) => '<svg viewBox="0 0 24 24" width="16" height="16" fill="' + (fill ? "currentColor" : "none") + '" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + d + "</svg>";
+B.GLYPH = {
+  refresh: _s('<path d="M20 11a8 8 0 0 0-14.3-4.9L4 8"/><path d="M4 3.5V8h4.5"/><path d="M4 13a8 8 0 0 0 14.3 4.9L20 16"/><path d="M20 20.5V16h-4.5"/>'),
+  plus: _s('<path d="M12 5v14M5 12h14"/>'),
+  check: _s('<path d="m5 12.5 4.5 4.5L19 7.5"/>'),
+  play: _s('<path d="M8 5.5v13l10.5-6.5Z"/>', true),
+  warn: _s('<path d="M12 3.5 2.5 20h19Z"/><path d="M12 10v4.5M12 17.4v.1"/>'),
+  gear: _s('<circle cx="12" cy="12" r="3"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7"/>'),
+  eye: _s('<path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12Z"/><circle cx="12" cy="12" r="2.8"/>'),
+  down: _s('<path d="M12 4v11M7 10.5l5 5 5-5M5 20h14"/>'),
+  up: _s('<path d="M12 20V9M7 13.5l5-5 5 5M5 4h14"/>'),
+  wait: _s('<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>'),
+  folder: _s('<path d="M3 7.5a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/>'),
+  trash: _s('<path d="M4 7h16M9.5 7V4.5h5V7M6.5 7l1 13h9l1-13M10 11v5.5M14 11v5.5"/>'),
+  history: _s('<path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1L3.5 8.5"/><path d="M3.5 4v4.5H8"/><path d="M12 7.5V12l3 2"/>'),
+  stats: _s('<path d="M5 20V11M11 20V5M17 20v-7"/>'),
+  belloff: _s('<path d="M8.5 5.2A6 6 0 0 1 18 10v5l1.5 2.5H9M6 10v5l-1.5 2.5"/><path d="M10 21h4M3.5 3.5l17 17"/>'),
+  edit: _s('<path d="M4 20h4L19 9l-4-4L4 16Z"/><path d="m13.5 6.5 4 4"/>'),
+  sound: _s('<path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4Z"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/>'),
+  pause: _s('<path d="M9 5.5v13M15 5.5v13"/>'),
+  left: _s('<path d="M19 12H5M11 6l-6 6 6 6"/>'),
+  user: _s('<circle cx="12" cy="8" r="3.6"/><path d="M4.5 20c0-4 3.4-6.5 7.5-6.5s7.5 2.5 7.5 6.5"/>'),
+  users: _s('<circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><path d="M16 5.2a3.2 3.2 0 0 1 0 5.6M18 14.3c1.8.8 3 2.6 3 4.7"/>'),
+  star: _s('<path d="m12 3.5 2.6 5.4 5.9.8-4.3 4.1 1 5.8L12 16.8l-5.2 2.8 1-5.8-4.3-4.1 5.9-.8Z"/>'),
+  starOn: _s('<path d="m12 3.5 2.6 5.4 5.9.8-4.3 4.1 1 5.8L12 16.8l-5.2 2.8 1-5.8-4.3-4.1 5.9-.8Z"/>', true),
+  sparkle: _s('<path d="M12 3.5 13.8 10 20.5 12l-6.7 2L12 20.5 10.2 14 3.5 12l6.7-2Z"/>'),
+  lock: _s('<rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/>'),
+  flame: _s('<path d="M12 21c-3.9 0-7-2.8-7-6.6 0-3.4 2.6-5.3 3.8-8.4.5 2 1.6 3.1 2.7 3.6C12 6.5 13.3 4.4 15.5 3c-.3 3 1.3 4.7 2.5 6.4 1 1.5 1 3 1 4.4 0 4-3.1 7.2-7 7.2Z"/>'),
+  gem: _s('<path d="M7 4.5h10l3.5 5L12 20 3.5 9.5Z"/><path d="M3.5 9.5h17M9.5 4.5 8 9.5l4 10.5 4-10.5-1.5-5"/>'),
+  x: _s('<path d="M6 6l12 12M18 6 6 18"/>'),
+  dots: _s('<circle cx="12" cy="5.5" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="12" cy="18.5" r="1.3"/>', true)
+};
+B.EMOJI_GLYPH = {
+  "🔄": "refresh", "➕": "plus", "✓": "check", "✅": "check", "🎮": "play", "⚠": "warn", "⚙": "gear", "👁": "eye", "⬇": "down", "⬆": "up", "⏳": "wait",
+  "📂": "folder", "🗑": "trash", "📜": "history", "📊": "stats", "🔕": "belloff", "✏": "edit", "🔊": "sound", "⏸": "pause", "←": "left", "👤": "user",
+  "👥": "users", "☆": "star", "⭐": "starOn", "🧹": "sparkle", "🔒": "lock", "🔥": "flame", "💎": "gem", "✕": "x", "⋮": "dots"
+};
+const GLYPH_TAGS = { BUTTON: 1, H1: 1, H2: 1, H3: 1 };
+const GLYPH_RE = /^([←-⯿⌀-⏿]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|\uD83E[\uDC00-\uDFFF])️?(?:\s+|$)/;
+B.glyph = (name) => { const sp = document.createElement("span"); sp.className = "glyph"; sp.innerHTML = B.GLYPH[name] || ""; return sp; };
+/** Remplace l'emoji de tête du premier texte de `el` par une icône (si l'emoji est connu). Sans effet sinon. */
+B.glyphify = (el) => {
+  const t = el.firstChild;
+  if (!t || t.nodeType !== 3) return el;
+  const m = GLYPH_RE.exec(t.data);
+  if (!m || !B.EMOJI_GLYPH[m[1]]) return el;
+  const rest = t.data.slice(m[0].length);
+  el.insertBefore(B.glyph(B.EMOJI_GLYPH[m[1]]), t);
+  if (rest) t.data = rest; else { t.remove(); el.classList.add("icon-only"); }
+  return el;
+};
+/** Change le libellé d'un bouton déjà affiché (même conversion emoji → icône). */
+B.label = (el, text) => { B.clear(el); el.classList.remove("icon-only"); el.append(document.createTextNode(text)); return B.glyphify(el); };
+{
+  const raw = B.h;
+  B.h = function (tag, attrs) {
+    const el = raw.apply(this, arguments);
+    const cls = attrs && attrs.class ? " " + attrs.class + " " : "";
+    if (GLYPH_TAGS[el.tagName] || cls.includes(" notice ") || cls.includes(" pill ")) B.glyphify(el);
+    return el;
+  };
+}
 B.$ = (s, r = document) => r.querySelector(s);
 B.clear = (el) => { while (el.firstChild) el.removeChild(el.firstChild); return el; };
 

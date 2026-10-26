@@ -3,7 +3,7 @@
 const { DISCORD_RE, NTFY_TOPIC_RE } = require("./defaults");
 
 const GROUP_LIMIT = 5;
-const COLORS = { added: 0x2ecc71, removed: 0xe74c3c, renamed: 0xf1c40f, online: 0x2ecc71, offline: 0x95a5a6, ingame: 0x3498db, req_in: 0x9b59b6, followers: 0x1abc9c, followings: 0x1abc9c };
+const COLORS = { digest: 0xffd60a, added: 0x2ecc71, removed: 0xe74c3c, renamed: 0xf1c40f, online: 0x2ecc71, offline: 0x95a5a6, ingame: 0x3498db, req_in: 0x9b59b6, followers: 0x1abc9c, followings: 0x1abc9c };
 
 function describe(e) {
   const who = e.friendName || ("Joueur " + e.friendId);
@@ -37,13 +37,28 @@ function inQuiet(quiet, now = new Date()) {
   return a < b ? n >= a && n < b : n >= a || n < b; // plage qui passe minuit
 }
 
+// Jeux surveillés : un élément est soit un identifiant de jeu (chiffres), soit un nom ou un morceau de nom (sans tenir compte des accents ni des majuscules).
+const fold = (x) => String(x || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
+function matchesGame(e, list) {
+  if (!e || e.type !== "ingame" || !Array.isArray(list) || !list.length) return false;
+  const place = fold(e.place);
+  return list.some((x) => { const v = String(x || "").trim(); if (!v) return false; return /^\d+$/.test(v) ? String(e.pid || "") === v : !!place && place.includes(fold(v)); });
+}
+
+const HELD_MAX = 50;
+
 class Notifier {
-  /** desktop(title, body, {sound}) : affiche une notification Windows. */
-  constructor({ getSettings, desktop, logger, fetchImpl }) {
+  /**
+   * desktop(title, body, {sound, join}) : affiche une notification Windows (join = identifiant d'un ami à rejoindre au clic).
+   * isPlaying() : vrai pendant que le compte actif est en jeu (pour « Silence pendant que je joue »).
+   */
+  constructor({ getSettings, desktop, logger, fetchImpl, isPlaying }) {
     this.getSettings = getSettings;
     this.desktop = desktop;
     this.log = logger;
     this.fetch = fetchImpl || ((...a) => fetch(...a));
+    this.isPlaying = isPlaying || (() => false);
+    this.held = []; // notifications Windows retenues pendant la partie
   }
 
   wanted(entries) {
@@ -54,19 +69,48 @@ class Notifier {
 
   notify(entries, now = new Date()) {
     const N = this.getSettings().notifications;
-    const list = this.wanted(entries);
-    if (!list.length || inQuiet(N.quiet, now)) return 0; // « Ne pas déranger » : seul l'envoi est coupé, l'historique est déjà enregistré
+    if (!N.enabled) return 0;
+    // Jeux surveillés : alerte dédiée (cliquable pour rejoindre), même si « Jeu lancé » est désactivé dans les événements.
+    const alerts = entries.filter((e) => matchesGame(e, N.gameAlerts));
+    const list = this.wanted(entries).filter((e) => !alerts.includes(e));
+    if ((!list.length && !alerts.length) || inQuiet(N.quiet, now)) return 0; // « Ne pas déranger » : seul l'envoi est coupé, l'historique est déjà enregistré
     const units = list.length > GROUP_LIMIT
       ? [{ icon: "🦇", title: `${list.length} nouveaux événements`, text: list.slice(0, 4).map((e) => describe(e).text).join("\n") + "\n…", type: "group" }]
       : list.map((e) => Object.assign({ type: e.type }, describe(e)));
+    for (const e of alerts) {
+      const who = e.friendName || ("Joueur " + e.friendId);
+      units.unshift({ icon: "🎯", title: "Jeu surveillé : " + (e.place || "jeu"), text: `${who} vient de lancer ${e.place || "un jeu surveillé"}. Clique pour le rejoindre.`, type: "ingame", join: e.friendId });
+    }
     for (const u of units) this.deliver(u, N);
     return units.length;
   }
 
   deliver(u, N) {
-    try { this.desktop(`${u.icon} ${u.title}`, u.text, { sound: N.sound }); } catch (e) { this.log.warn("Notification Windows : " + e.message); }
-    if (N.discord.enabled && DISCORD_RE.test(N.discord.url)) this.sendDiscord(N.discord.url, u).catch((e) => this.log.warn("Discord : " + e.message));
-    if (N.ntfy.enabled && NTFY_TOPIC_RE.test(N.ntfy.topic)) this.sendNtfy(N.ntfy, u).catch((e) => this.log.warn("ntfy : " + e.message));
+    if (N.quietInGame && this.isPlaying()) { this.held.push(u); if (this.held.length > HELD_MAX) this.held.shift(); }
+    else { try { this.desktop(`${u.icon} ${u.title}`, u.text, { sound: N.sound, join: u.join }); } catch (e) { this.log.warn("Notification Windows : " + e.message); } }
+    this.sendRemote(u, N).catch(() => {});
+  }
+
+  /** Fin de partie : une seule notification Windows qui récapitule ce qui a été retenu. Renvoie le nombre d'alertes résumées. */
+  flushHeld() {
+    const list = this.held.splice(0);
+    if (!list.length) return 0;
+    const N = this.getSettings().notifications;
+    const text = list.length === 1 ? list[0].text : list.slice(0, 4).map((u) => "• " + u.text).join("\n") + (list.length > 4 ? `\n… et ${list.length - 4} autre(s) dans l'historique.` : "");
+    try { this.desktop(list.length === 1 ? `${list[0].icon} ${list[0].title}` : `🦇 Pendant ta partie : ${list.length} alertes`, text, { sound: N.sound, join: list.length === 1 ? list[0].join : undefined }); }
+    catch (e) { this.log.warn("Notification Windows : " + e.message); }
+    return list.length;
+  }
+
+  /** Envoie sur Discord et ntfy (ceux qui sont activés et configurés). Renvoie le nombre de canaux utilisés. */
+  async sendRemote(u, N = this.getSettings().notifications) {
+    const jobs = [];
+    if (N.discord.enabled && DISCORD_RE.test(N.discord.url)) jobs.push(this.sendDiscord(N.discord.url, u).catch((e) => { this.log.warn("Discord : " + e.message); throw e; }));
+    if (N.ntfy.enabled && NTFY_TOPIC_RE.test(N.ntfy.topic)) jobs.push(this.sendNtfy(N.ntfy, u).catch((e) => { this.log.warn("ntfy : " + e.message); throw e; }));
+    const r = await Promise.allSettled(jobs);
+    const failed = r.filter((x) => x.status === "rejected");
+    if (jobs.length && failed.length === jobs.length) throw new Error("Envoi impossible : " + failed[0].reason.message);
+    return jobs.length - failed.length;
   }
 
   async sendDiscord(url, u) {
@@ -96,4 +140,4 @@ class Notifier {
   }
 }
 
-module.exports = { Notifier, describe, inQuiet };
+module.exports = { Notifier, describe, inQuiet, matchesGame };

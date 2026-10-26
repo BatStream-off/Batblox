@@ -5,7 +5,7 @@
 **Le centre de contrôle Roblox pour Windows.**
 Lanceur, amis, profils suivis, historique, statistiques et notifications dans une seule application, entièrement en français.
 
-![Version](https://img.shields.io/badge/version-1.5.8-2563F2)
+![Version](https://img.shields.io/badge/version-1.5.9-2563F2)
 ![Plateforme](https://img.shields.io/badge/plateforme-Windows-0078D4)
 ![Electron](https://img.shields.io/badge/Electron-33-47848F)
 
@@ -25,6 +25,9 @@ Lanceur, amis, profils suivis, historique, statistiques et notifications dans un
 - **Discord Rich Presence**, **zone de notification**, **exécuteur** de logiciels personnels.
 - **Personnalisation et maintenance** de Roblox : son, polices, curseurs, nettoyage du cache, vérification de l'installation.
 - **Thèmes** : Clair, Sombre, Batcave Neon, Joker, Batman, Inde, mode potato pour les PC anciens.
+- **Temps de jeu** par jour et par jeu, avec limite quotidienne et rappel.
+- **Jeux surveillés** (alerte quand un ami lance un jeu choisi, clic pour le rejoindre), **silence pendant que je joue**, **résumé quotidien** sur Discord / ntfy.
+- **Sauvegarde automatique** hebdomadaire, **raccourcis clavier**, **taille de l'interface**, **couleur d'accent**, **page d'ouverture**.
 - **Mises à jour automatiques depuis GitHub** (voir plus bas).
 
 ## 📥 Installation

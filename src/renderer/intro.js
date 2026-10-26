@@ -1,5 +1,5 @@
 "use strict";
-// Intro vidéo de lancement (v1.5.8 : lecture fluide).
+// Intro vidéo de lancement (v1.5.9 : lecture fluide).
 //  - Première chose visible : le calque #intro (z-index maximal, fond bleu opaque = première image de la vidéo) recouvre TOUT.
 //  - L'interface est construite et DESSINÉE sous le calque AVANT que la vidéo ne démarre (pré-roulage) : tout le coût de
 //    démarrage (scripts, mise en page, premier rendu, rastérisation des fonds) tombe pendant que l'écran affiche un aplat bleu.
@@ -49,6 +49,7 @@
     state = "done";
     clearTimeout(startTimer); clearTimeout(endTimer); clearTimeout(prerollTimer); cancelAnimationFrame(raf);
     setInert(false); root.classList.remove("intro-on", "intro-fade");
+    window.removeEventListener("keydown", onSkip, true);
     try { v.pause(); v.removeAttribute("src"); v.load(); } catch (_) { /* libère le décodeur */ }
     box.remove();
     try { window.batblox && window.batblox.call("intro:done").catch(() => {}); } catch (_) { /* fond de fenêtre = couleur du thème */ }
@@ -113,6 +114,17 @@
   v.addEventListener("error", () => leave(true));
   // Pas de pause possible (touche média du clavier, etc.) : une intro ne se met pas en pause.
   v.addEventListener("pause", () => { if (state === "playing" && !v.ended) v.play().catch(() => {}); });
+
+  // Passer l'intro : clic, Échap, Entrée ou Espace. Le son s'arrête aussitôt, l'image se fond rapidement sur l'interface.
+  box.addEventListener("click", onSkip);
+  window.addEventListener("keydown", onSkip, true);
+  function onSkip(e) {
+    if (state === "leaving" || state === "done") return;
+    if (e.type === "keydown" && e.key !== "Escape" && e.key !== "Enter" && e.key !== " ") return;
+    e.preventDefault(); e.stopPropagation();
+    leave(true);            // passe l'état à « leaving » : l'écouteur « pause » ne relance plus la vidéo
+    try { v.pause(); } catch (_) { /* déjà arrêtée */ }
+  }
 
   function start() {
     if (state !== "preroll") return;

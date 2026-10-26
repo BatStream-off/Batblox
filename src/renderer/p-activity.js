@@ -6,7 +6,8 @@
 const ACT_TABS = [
   ["history", "Historique", "history", "Changements détectés"],
   ["stats", "Statistiques", "stats", "Évolution et présence"],
-  ["notifs", "Notifications", "notifs", "Alertes et plages horaires"]
+  ["playtime", "Temps de jeu", "roblox", "Par jour et par jeu"],
+  ["notifs", "Notifications", "notifs", "Alertes et horaires"]
 ];
 
 B.pages.activity = {
@@ -15,7 +16,7 @@ B.pages.activity = {
   render(view) {
     this.root = h("div", { class: "page" });
     view.append(this.root);
-    this.root.append(B.head("Activité", "Historique, statistiques et notifications au même endroit."),
+    this.root.append(B.head("Activité", "Historique, statistiques, temps de jeu et notifications au même endroit."),
       h("div", { id: "ac-tabs" }), h("div", { id: "ac-body", style: "margin-top:16px" }));
     this.drawTabs();
     this.drawBody();
@@ -44,5 +45,6 @@ B.pages.activity = {
 
   // Les événements du processus principal sont transmis à l'onglet affiché.
   onMonitor(snap) { const p = B.pages[this.tab]; if (p && p.onMonitor) p.onMonitor(snap); },
-  onHistory() { const p = B.pages[this.tab]; if (p && p.onHistory) p.onHistory(); }
+  onHistory() { const p = B.pages[this.tab]; if (p && p.onHistory) p.onHistory(); },
+  onPlaytime() { const p = B.pages[this.tab]; if (p && p.onPlaytime) p.onPlaytime(); }
 };

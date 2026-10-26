@@ -29,6 +29,49 @@ B.pages.notifs = {
       B.row("De / à", null, h("div", { class: "row" },
         h("input", { type: "time", value: N.quiet.from, "aria-label": "Début", onchange: (e) => setv(["notifications", "quiet", "from"], e.target.value) }), "→",
         h("input", { type: "time", value: N.quiet.to, "aria-label": "Fin", onchange: (e) => setv(["notifications", "quiet", "to"], e.target.value) })))));
+    p.append(h("div", { class: "card" }, h("h2", {}, "Pendant que je joue"),
+      B.row("Silence pendant que je joue", "Les notifications Windows sont retenues tant que tu es en jeu, puis une seule notification te résume tout à la fin de la partie. Discord et ntfy continuent normalement. Nécessite « Afficher mon propre statut » (Réglages → Monitoring).", sw(["notifications", "quietInGame"], "Silence pendant que je joue"))));
+    p.append(this.alertsCard());
+    p.append(this.digestCard());
+  },
+
+  // Jeux surveillés : une alerte dédiée quand un ami lance l'un de ces jeux ; un clic sur la notification le rejoint.
+  alertsCard() {
+    const card = h("div", { class: "card", id: "ga-card" });
+    const draw = () => {
+      const list = B.S.settings.notifications.gameAlerts || [];
+      const save = async (next) => { await B.set({ notifications: { gameAlerts: next } }); draw(); };
+      const inp = h("input", { type: "text", placeholder: "Nom du jeu (ex. Blox Fruits) ou identifiant", maxlength: 60, "aria-label": "Jeu à surveiller",
+        onkeydown: (e) => { if (e.key === "Enter") add(); } });
+      const add = () => { const v = inp.value.trim(); if (!v) return; if (list.some((x) => x.toLowerCase() === v.toLowerCase())) { B.toast("Ce jeu est déjà surveillé."); return; } save(list.concat(v)); };
+      const recent = ((B.S.snap && B.S.snap.recentGames) || []).map((g) => g.name).filter((n) => n && !list.some((x) => x.toLowerCase() === n.toLowerCase())).slice(0, 5);
+      const kids = (...a) => a.filter((x) => x != null && x !== false); // jamais « null » dans append()
+      B.clear(card).append(...kids(h("h2", {}, "Jeux surveillés"),
+        h("p", { class: "muted small" }, "Quand un ami lance l'un de ces jeux, tu reçois une alerte dédiée, même si « Jeu lancé » est désactivé plus haut. Clique sur la notification pour le rejoindre. Un nom partiel suffit : « fruits » trouve « Blox Fruits »."),
+        list.length ? h("div", { class: "chips ga-list" }, list.map((x) => h("span", { class: "chip on ga-chip" }, x,
+          h("button", { class: "ga-x", title: "Ne plus surveiller « " + x + " »", "aria-label": "Retirer " + x, onclick: () => save(list.filter((y) => y !== x)) }, "✕")))) : null,
+        h("div", { class: "field-row" }, inp, h("button", { class: "btn pri", onclick: add }, "➕ Surveiller")),
+        recent.length ? h("div", { class: "row wrap ga-sugg" }, h("span", { class: "muted small" }, "Tes derniers jeux :"), recent.map((n) => h("button", { class: "chip", onclick: () => save(list.concat(n)) }, "+ " + n))) : null));
+    };
+    draw();
+    return card;
+  },
+
+  // Résumé quotidien : un message par jour sur Discord / ntfy (ajouts et retraits d'amis, pseudos, temps de jeu…).
+  digestCard() {
+    const N = B.S.settings.notifications, D = N.digest;
+    const remote = (N.discord.enabled && N.discord.url) || (N.ntfy.enabled && N.ntfy.topic);
+    return h("div", { class: "card" }, h("h2", {}, "Résumé quotidien"),
+      remote ? null : h("div", { class: "notice" }, "⚠ Le résumé est envoyé sur Discord ou ntfy : active l'un des deux d'abord.", h("button", { class: "btn sm", onclick: () => B.go("discord") }, "Configurer")),
+      B.row("Envoyer un résumé chaque jour", "Un seul message : nouveaux amis, amis retirés, changements de pseudo, demandes reçues et ton temps de jeu de la journée.", sw(["notifications", "digest", "enabled"], "Résumé quotidien")),
+      B.row("Heure d'envoi", "Si Batblox est fermé à cette heure-là, le résumé part dès sa prochaine ouverture le même jour.",
+        h("input", { type: "time", value: D.time, "aria-label": "Heure du résumé", onchange: (e) => setv(["notifications", "digest", "time"], e.target.value) })),
+      B.row("Aperçu", "Le résumé d'aujourd'hui, tel qu'il serait envoyé maintenant.", h("div", { class: "row" },
+        h("button", { class: "btn", onclick: async () => {
+          const u = await B.run(() => B.call("digest:preview")); if (!u) return;
+          B.modal({ title: u.title, body: h("pre", { class: "log digest-prev", "data-allow-copy": "" }, u.text), buttons: [{ label: "Fermer", value: true }] });
+        } }, "Voir l'aperçu"),
+        h("button", { class: "btn", disabled: !remote, onclick: () => B.run(() => B.call("digest:test")).then((n) => n && B.toast("Résumé envoyé.", "ok")) }, "Envoyer maintenant"))));
   }
 };
 
@@ -91,6 +134,11 @@ B.pages.settings = {
     p.append(h("div", { class: "card" }, h("h2", {}, "Apparence"),
       B.row("Thème", "Auto suit le thème de Windows. Batcave, Joker, Batman : thèmes sombres ; Inde : thème clair safran, blanc et vert.", h("select", { "aria-label": "Thème", onchange: (e) => setv(["appearance", "theme"], e.target.value) },
         [["auto", "Automatique"], ["light", "Clair"], ["dark", "Sombre"], ["bat", "Batcave Neon"], ["joker", "Joker"], ["batman", "Batman"], ["inde", "Inde"]].map(([v, l]) => h("option", { value: v, selected: A.theme === v }, l)))),
+      B.row("Couleur d'accent", "Boutons, liens et éléments actifs des thèmes Clair, Sombre et Automatique. Les autres thèmes gardent leurs couleurs.", this.accentPicker()),
+      B.row("Taille de l'interface", "Agrandit ou réduit tout le texte et les éléments. Raccourcis : Ctrl + + / Ctrl + − / Ctrl + 0.", this.zoomPicker()),
+      B.row("Page d'ouverture", "La page affichée quand Batblox s'ouvre.", h("select", { "aria-label": "Page d'ouverture", onchange: (e) => setv(["appearance", "startPage"], e.target.value) },
+        [["home", "Accueil"], ["discover", "Découvrir"], ["profile", "Mon profil"], ["activity", "Activité"], ["messages", "Messages"], ["roblox", "Roblox"]].map(([v, l]) => h("option", { value: v, selected: (A.startPage || "home") === v }, l)))),
+      B.row("Intro vidéo au démarrage", "La courte animation jouée à l'ouverture de Batblox. Tu peux aussi la passer d'un clic ou avec Échap.", sw(["appearance", "intro"], "Intro vidéo")),
       B.row("Mode potato", "Aucun effet ni animation : pour les ordinateurs anciens. Tout fonctionne pareil.", sw(["appearance", "potato"], "Mode potato")),
       B.row("Animations", null, sw(["appearance", "animations"], "Animations")),
       B.row("Ombres", null, sw(["appearance", "shadows"], "Ombres")),
@@ -138,6 +186,78 @@ B.pages.settings = {
       B.row("Export CSV de l'historique", null, h("button", { class: "btn", onclick: async () => { const f = await B.run(() => B.call("history:csv")); if (f) B.toast("Exporté : " + f, "ok"); } }, "Exporter en CSV")),
       B.row("Effacer l'historique", null, h("button", { class: "btn bad", onclick: async () => { if (await B.confirm("Effacer tout l'historique ?", "Effacer", true)) { await B.run(() => B.call("history:clear")); B.toast("Historique effacé.", "ok"); } } }, "Effacer")),
       B.row("Réinitialiser Batblox", "Remet les réglages par défaut et efface historique, profils suivis et statistiques. Les comptes sont conservés.", h("button", { class: "btn bad", onclick: async () => { if (await B.confirm("Tout réinitialiser ? Cette action est définitive.", "Réinitialiser", true)) { await B.run(() => B.call("data:reset")); B.toast("Batblox a été réinitialisé.", "ok"); B.renderPage(); } } }, "Réinitialiser"))));
+    p.append(this.backupCard());
+    p.append(h("div", { class: "card" }, h("h2", {}, "Raccourcis clavier"),
+      h("div", { class: "kbd-list" }, B.SHORTCUTS.map(([k, d]) => h("div", { class: "kbd-row" }, h("span", { class: "kbd-keys" }, k.split(" ou ").map((part, i) => [i ? h("span", { class: "muted small" }, " ou ") : null, part.split(" / ").map((combo, j) => [j ? h("span", { class: "muted" }, " / ") : null, h("kbd", {}, combo)])])), h("span", { class: "muted" }, d))))));
+    this.sectionBar(p);
+  },
+  accentPicker() {
+    const A = B.S.settings.appearance;
+    const names = { bleu: "Bleu", violet: "Violet", vert: "Vert", orange: "Orange", rose: "Rose", cyan: "Cyan" };
+    const wrap = h("div", { class: "swatches", role: "radiogroup", "aria-label": "Couleur d'accent" });
+    const draw = () => {
+      B.clear(wrap);
+      const on = ["light", "dark", "auto"].includes(B.S.settings.appearance.theme);
+      for (const [k, l] of Object.entries(names)) wrap.append(h("button", { class: "swatch sw-" + k + ((B.S.settings.appearance.accent || "bleu") === k ? " on" : ""), role: "radio", "aria-checked": (B.S.settings.appearance.accent || "bleu") === k ? "true" : "false", title: l + (on ? "" : " (thèmes Clair, Sombre et Auto)"), "aria-label": l,
+        onclick: async () => { await setv(["appearance", "accent"], k); draw(); } }));
+    };
+    draw();
+    return wrap;
+  },
+  zoomPicker() {
+    const z = B.S.settings.appearance.zoom || 100;
+    return h("div", { class: "range-wrap" },
+      h("input", { type: "range", min: 80, max: 130, step: 10, value: z, "aria-label": "Taille de l'interface", style: `--p:${((z - 80) / 50) * 100}%`,
+        oninput: (e) => { e.target.style.setProperty("--p", ((e.target.value - 80) / 50) * 100 + "%"); e.target.nextSibling.textContent = e.target.value + " %"; },
+        onchange: (e) => setv(["appearance", "zoom"], Number(e.target.value)) }),
+      h("span", { class: "range-val" }, z + " %"));
+  },
+
+  // Sauvegarde automatique : une copie des données chaque semaine dans un dossier choisi (clé USB, OneDrive…), les plus anciennes supprimées.
+  backupCard() {
+    const card = h("div", { class: "card", id: "bk-card" });
+    const draw = (st) => {
+      const Bk = B.S.settings.backup;
+      const stTxt = !st ? "…" : st.error ? "⚠ Dernier essai échoué : " + st.error
+        : st.lastAt ? "Dernière sauvegarde : " + new Date(st.lastAt).toLocaleString("fr-FR", { dateStyle: "medium", timeStyle: "short" }) + (Bk.enabled && st.nextAt ? " · prochaine : " + new Date(st.nextAt).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" }) : "")
+        : "Aucune sauvegarde automatique pour le moment.";
+      B.clear(card).append(h("h2", {}, "Sauvegarde automatique"),
+        B.row("Sauvegarder chaque semaine", "Même contenu que « Exporter » : historique, profils suivis, statistiques, temps de jeu et réglages. Jamais d'information de connexion Roblox.", sw(["backup", "enabled"], "Sauvegarde automatique")),
+        B.row("Dossier", Bk.dir ? h("span", { class: "bk-dir", title: Bk.dir, "data-allow-copy": "" }, Bk.dir) : "Aucun dossier choisi. Un dossier synchronisé (OneDrive…) ou une clé USB protège aussi contre une panne du PC.",
+          h("div", { class: "row" }, Bk.dir ? h("button", { class: "btn", onclick: () => B.run(() => B.call("backup:open")) }, "📂 Ouvrir") : null,
+            h("button", { class: "btn", onclick: async () => { const d = await B.run(() => B.call("backup:pickDir")); if (d) { B.toast("Dossier enregistré.", "ok"); load(); } } }, Bk.dir ? "Changer…" : "Choisir…"))),
+        B.row("Copies conservées", "Les plus anciennes sauvegardes automatiques sont supprimées au-delà. Tes autres fichiers ne sont jamais touchés.", numIn(["backup", "keep"], { min: 1, max: 52, style: "width:90px", "aria-label": "Nombre de copies" })),
+        h("div", { class: "upd-row" }, h("div", { class: "muted small upd-info", role: "status" }, stTxt),
+          h("button", { class: "btn pri upd-btn", disabled: !Bk.dir, onclick: async () => { const f = await B.run(() => B.call("backup:now")); if (f) B.toast("Sauvegarde enregistrée : " + f, "ok"); load(); } }, "Sauvegarder maintenant")));
+    };
+    const load = async () => { const st = await B.call("backup:state").catch(() => null); if (card.isConnected || !card.parentNode) draw(st); };
+    this.onBackup = (st) => { if (card.isConnected) draw(st); };
+    draw(B.S.backup || null);
+    load();
+    return card;
+  },
+
+  // Barre de sections collante : un clic fait défiler jusqu'à la carte ; la section visible est mise en évidence.
+  sectionBar(p) {
+    const cards = Array.from(p.children).filter((c) => c.classList.contains("card") && c.querySelector(":scope > h2"));
+    if (cards.length < 3) return;
+    const chips = cards.map((c, i) => {
+      c.id = c.id || "set-" + i;
+      return h("button", { class: "chip", type: "button", onclick: () => c.scrollIntoView({ behavior: B.S.settings.appearance.animations ? "smooth" : "auto", block: "start" }) }, c.querySelector(":scope > h2").textContent.trim());
+    });
+    const bar = h("div", { class: "secbar chips", role: "navigation", "aria-label": "Sections des réglages" }, chips);
+    p.insertBefore(bar, cards[0]);
+    const view = B.$("#view");
+    const mark = () => {
+      if (!bar.isConnected) { view.removeEventListener("scroll", mark); return; }
+      const top = view.getBoundingClientRect().top + 90;
+      let cur = 0;
+      cards.forEach((c, i) => { if (c.getBoundingClientRect().top <= top) cur = i; });
+      if (view.scrollTop + view.clientHeight >= view.scrollHeight - 4) cur = cards.length - 1;
+      chips.forEach((b, i) => { b.classList.toggle("on", i === cur); if (i === cur) b.setAttribute("aria-current", "true"); else b.removeAttribute("aria-current"); });
+    };
+    view.addEventListener("scroll", mark, { passive: true });
+    mark();
   },
   updateCard() {
     const card = h("div", { class: "card" }, h("h2", {}, "Mises à jour"));

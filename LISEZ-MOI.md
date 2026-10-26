@@ -110,8 +110,27 @@ La page Messages repose sur les API de chat de Roblox, non documentées officiel
 
 La lecture ne démarre qu'une fois la vidéo chargée et l'interface déjà dessinée sous le calque bleu (pré-roulage, quelques dixièmes de seconde invisibles) ; pendant la lecture rien ne bouge en dessous (animations en pause, éclairs et lueur de souris coupés), ce qui supprime les saccades. Si la vidéo est absente ou ne démarre pas, l'interface s'affiche directement.
 
-## Nouveautés v1.5.8
+## Nouveautés v1.5.9
 - **Intro vidéo** : plus de saccades. Avant, la vidéo démarrait pendant le chargement de l'interface, l'interface était dévoilée sous la vidéo 1 s avant la fin (avec un recalcul de style à chaque image), et le décor animé repartait pendant le fondu.
 - **Une seule barre en haut** : logo, état du monitoring, compte et boutons de la fenêtre réunis (l'ancienne barre de titre affichait « Batblox » une deuxième fois).
 - **Accueil** : un bandeau unique avec ton statut, le jeu qui sera lancé et le bouton « Lancer Roblox », puis les compteurs du compte (amis, demandes, abonnés, abonnements, profils suivis), cliquables.
 - **Thèmes Clair, Sombre et Auto** : couleur d'accent bleue, celle du logo et de l'intro (au lieu du violet). Les thèmes Batcave, Joker, Batman et Inde ne changent pas.
+- **Icônes** : les emojis des boutons, titres, menus et bandeaux (🔄 ➕ 🗑 ⬇ 📜 📊 🔕 ⭐…) sont remplacés à l'affichage par des icônes au trait, de la même famille que celles du menu et dans la couleur du thème (conversion centralisée dans `lib.js` : `B.GLYPH`, `B.EMOJI_GLYPH`). Les noms de jeux et de joueurs ne sont jamais modifiés.
+- **États vides** : silhouette de chauve-souris vectorielle dans la couleur du thème au lieu de l'emoji 🦇.
+- **Réglages** : barre de sections collante en haut de la page (Apparence, Son, Monitoring…) ; la section visible est mise en évidence.
+
+### Nouvelles options (v1.5.9)
+| Option | Où | Détail |
+|---|---|---|
+| Intro au démarrage | Réglages → Apparence | Interrupteur. L'intro se passe aussi d'un clic, avec Échap, Entrée ou Espace. |
+| Taille de l'interface | Réglages → Apparence | 80 à 130 % (zoom de la fenêtre). Raccourcis Ctrl + + / Ctrl + − / Ctrl + 0. |
+| Page d'ouverture | Réglages → Apparence | Accueil, Découvrir, Mon profil, Activité, Messages ou Roblox. |
+| Couleur d'accent | Réglages → Apparence | Bleu, violet, vert, orange, rose, cyan pour Clair / Sombre / Auto (contraste vérifié : texte blanc ≥ 4,5:1 sur les boutons). |
+| Raccourcis clavier | partout (liste dans Réglages) | Ctrl+1…9 pages du menu, Ctrl+L lancer Roblox, Ctrl+R ou F5 vérifier, Ctrl+, réglages. Interceptés dans `main.js` avant le menu caché d'Electron (Ctrl+R ne recharge plus la page). |
+| Temps de jeu | Activité → Temps de jeu | Aujourd'hui, 7 jours, graphique sur 14 jours, jeux les plus joués. Calculé avec ton propre statut à chaque vérification (`core/playtime.js`, stockage `playtime.json`) ; nécessite « Statut en ligne » et « Afficher mon propre statut ». Un trou (PC en veille) n'est jamais compté plus de 2,5 intervalles. |
+| Limite quotidienne | Activité → Temps de jeu | Notification Windows une fois par jour quand la limite est dépassée. Rien n'est bloqué. |
+| Silence pendant que je joue | Activité → Notifications | Notifications Windows retenues pendant la partie, une seule notification récapitulative à la fin. Discord / ntfy inchangés. |
+| Jeux surveillés | Activité → Notifications | Alerte dédiée quand un ami lance un jeu de la liste (nom partiel ou identifiant) ; un clic sur la notification le rejoint. |
+| Résumé quotidien | Activité → Notifications | Un message par jour sur Discord / ntfy à l'heure choisie (`core/scheduler.js`), avec aperçu et envoi immédiat. |
+| Sauvegarde automatique | Réglages → Sauvegarde automatique | Chaque semaine dans le dossier choisi, fichiers `batblox-sauvegarde-auto-AAAA-MM-JJ.json`, les N plus récents conservés ; les autres fichiers du dossier ne sont jamais touchés. Dossier absent : nouvel essai une heure plus tard. Le chemin du dossier n'est pas exporté. |
+

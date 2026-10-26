@@ -77,7 +77,7 @@ B.pages.discover = {
     if (known) { const img = h("img", { src: known, alt: "", decoding: "async" }); img.onload = () => { B.clear(cover); cover.append(img); cover.classList.add("img"); }; }
     const meta = [g.players ? "👥 " + (g.players >= 10000 ? Math.round(g.players / 1000) + " k" : B.num(g.players)) : null, g.likes != null ? "👍 " + g.likes + " %" : null].filter(Boolean).join(" · ");
     const star = h("button", { class: "btn sm", title: isFav ? "Déjà dans les favoris" : "Ajouter aux favoris", "aria-label": "Ajouter aux favoris", disabled: isFav,
-      onclick: async () => { const cur = (B.S.settings.launcher.favorites || []).filter((f) => f.placeId !== g.pid).concat({ placeId: g.pid, name: g.name }); await B.set({ launcher: { favorites: cur } }); star.disabled = true; star.textContent = "⭐"; B.toast("« " + g.name + " » ajouté aux favoris.", "ok"); } }, isFav ? "⭐" : "☆");
+      onclick: async () => { const cur = (B.S.settings.launcher.favorites || []).filter((f) => f.placeId !== g.pid).concat({ placeId: g.pid, name: g.name }); await B.set({ launcher: { favorites: cur } }); star.disabled = true; B.label(star, "⭐"); B.toast("« " + g.name + " » ajouté aux favoris.", "ok"); } }, isFav ? "⭐" : "☆");
     return h("div", { class: "tile" }, cover, h("b", { class: "tile-name", title: g.name }, g.name), h("span", { class: "muted small" }, meta || "Jeu " + g.pid),
       h("div", { class: "row tile-act" }, h("button", { class: "btn sm pri", disabled: !B.S.active, onclick: () => B.run(() => B.call("roblox:launch", { placeId: g.pid })).then((r) => r && B.toast("Roblox se lance…", "ok")) }, "Lancer"), star));
   },

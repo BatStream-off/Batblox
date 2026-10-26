@@ -1313,7 +1313,7 @@ button.tabtile b.tt { font-size: 20px; font-weight: 700; letter-spacing: -.01em;
 
 
 /* =====================================================================================
-   v1.5.8 — barre unique, accueil plus utile, couleur de marque
+   v1.5.9 — barre unique, accueil plus utile, couleur de marque
    ===================================================================================== */
 
 /* -- Couleur de marque : le bleu du logo et de l'intro remplace le violet pour Clair, Sombre et Auto.
@@ -1410,3 +1410,114 @@ button.tabtile b.tt { font-size: 20px; font-weight: 700; letter-spacing: -.01em;
 
 /* La zone de contenu reçoit le focus à la fin de l'intro (pour le clavier) : pas de cadre de focus autour de toute la page. */
 #view:focus, #view:focus-visible { outline: none; }
+
+/* -- Icônes au trait (remplacent les emojis des boutons, titres et bandeaux) -- */
+.glyph { display: inline-flex; flex: none; align-items: center; justify-content: center; line-height: 0; }
+.glyph svg { display: block; width: 16px; height: 16px; }
+.btn.sm .glyph svg { width: 14px; height: 14px; }
+.btn.lg .glyph svg { width: 18px; height: 18px; }
+.btn.icon-only { padding: 0; width: var(--ctl-h); min-width: var(--ctl-h); }
+.btn.sm.icon-only { width: var(--ctl-h-sm); min-width: var(--ctl-h-sm); }
+.btn:not(.pri):not(.bad) .glyph { color: var(--acc); }
+.btn.ghost .glyph { color: inherit; }
+h1 > .glyph, h2 > .glyph, h3 > .glyph { color: var(--acc); margin-right: 8px; vertical-align: -2px; }
+h2 > .glyph svg { width: 17px; height: 17px; }
+.notice > .glyph { color: var(--acc); align-self: flex-start; margin-top: 1px; }
+.notice.bad > .glyph { color: var(--bad); }
+.pill > .glyph svg { width: 13px; height: 13px; }
+.dots .glyph svg { width: 18px; height: 18px; }
+.dots { color: var(--muted); } .dots:hover { color: var(--text); }
+:root[data-theme="batman"] .card h2 > .glyph { display: none; } /* le thème Batman a déjà sa chauve-souris devant les titres */
+
+/* -- États vides : silhouette de chauve-souris vectorielle (nette, couleur du thème) au lieu de l'emoji 🦇 -- */
+.empty::before { content: ""; display: block; width: 56px; height: 24px; margin: 0 auto 14px; font-size: 0; opacity: .55; background: var(--acc2);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='13 3 174 77'%3E%3Cg fill='%23000' stroke='%23000' stroke-width='.9' stroke-linejoin='round' %3E%3Cpath transform='translate(0 0) scale(1)' d='M100 21.63C101.3 21.63 102.25 21.55 103.23 21.38C104.18 19.25 105.99 12.84 107.04 11.45C107.12 11.34 107.37 11.56 107.45 11.45C108.25 16.23 109.27 26.2 111.42 30.07C114.26 30.55 117.27 30.3 120.11 29.83C120.68 29.73 121.29 29.92 121.85 29.83C129.32 28.58 136.62 26.48 142.21 20.89C143.78 19.32 145.32 17.41 145.69 15.17C146.41 10.86 143.1 7.2 140.97 4C145.5 4.5 150.09 6.53 154.13 8.55C170.46 16.72 182.28 26.11 185.42 44.97C183.17 44.97 180.92 44.6 178.72 44.23C177.19 43.97 175.53 44.48 174 44.23C167.2 43.09 152.87 44.06 148.17 49.69C144.57 54.02 146.25 54.11 145.44 58.13C145.39 58.42 145.03 58.43 144.95 58.63C144.55 58.67 144.37 59.11 143.95 59.04C142.9 58.87 141.98 57.81 140.97 57.47C134.33 55.26 127.16 54.28 120.61 57.55C114.75 60.48 110.35 64.83 106.21 69.81C104.41 71.97 102.74 76.01 100.99 77.75C100.66 78.09 100.34 77.85 100 78Z'/%3E%3Cpath transform='translate(200 0) scale(-1 1)' d='M100 21.63C101.3 21.63 102.25 21.55 103.23 21.38C104.18 19.25 105.99 12.84 107.04 11.45C107.12 11.34 107.37 11.56 107.45 11.45C108.25 16.23 109.27 26.2 111.42 30.07C114.26 30.55 117.27 30.3 120.11 29.83C120.68 29.73 121.29 29.92 121.85 29.83C129.32 28.58 136.62 26.48 142.21 20.89C143.78 19.32 145.32 17.41 145.69 15.17C146.41 10.86 143.1 7.2 140.97 4C145.5 4.5 150.09 6.53 154.13 8.55C170.46 16.72 182.28 26.11 185.42 44.97C183.17 44.97 180.92 44.6 178.72 44.23C177.19 43.97 175.53 44.48 174 44.23C167.2 43.09 152.87 44.06 148.17 49.69C144.57 54.02 146.25 54.11 145.44 58.13C145.39 58.42 145.03 58.43 144.95 58.63C144.55 58.67 144.37 59.11 143.95 59.04C142.9 58.87 141.98 57.81 140.97 57.47C134.33 55.26 127.16 54.28 120.61 57.55C114.75 60.48 110.35 64.83 106.21 69.81C104.41 71.97 102.74 76.01 100.99 77.75C100.66 78.09 100.34 77.85 100 78Z'/%3E%3C/g%3E%3C/svg%3E") center / contain no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='13 3 174 77'%3E%3Cg fill='%23000' stroke='%23000' stroke-width='.9' stroke-linejoin='round' %3E%3Cpath transform='translate(0 0) scale(1)' d='M100 21.63C101.3 21.63 102.25 21.55 103.23 21.38C104.18 19.25 105.99 12.84 107.04 11.45C107.12 11.34 107.37 11.56 107.45 11.45C108.25 16.23 109.27 26.2 111.42 30.07C114.26 30.55 117.27 30.3 120.11 29.83C120.68 29.73 121.29 29.92 121.85 29.83C129.32 28.58 136.62 26.48 142.21 20.89C143.78 19.32 145.32 17.41 145.69 15.17C146.41 10.86 143.1 7.2 140.97 4C145.5 4.5 150.09 6.53 154.13 8.55C170.46 16.72 182.28 26.11 185.42 44.97C183.17 44.97 180.92 44.6 178.72 44.23C177.19 43.97 175.53 44.48 174 44.23C167.2 43.09 152.87 44.06 148.17 49.69C144.57 54.02 146.25 54.11 145.44 58.13C145.39 58.42 145.03 58.43 144.95 58.63C144.55 58.67 144.37 59.11 143.95 59.04C142.9 58.87 141.98 57.81 140.97 57.47C134.33 55.26 127.16 54.28 120.61 57.55C114.75 60.48 110.35 64.83 106.21 69.81C104.41 71.97 102.74 76.01 100.99 77.75C100.66 78.09 100.34 77.85 100 78Z'/%3E%3Cpath transform='translate(200 0) scale(-1 1)' d='M100 21.63C101.3 21.63 102.25 21.55 103.23 21.38C104.18 19.25 105.99 12.84 107.04 11.45C107.12 11.34 107.37 11.56 107.45 11.45C108.25 16.23 109.27 26.2 111.42 30.07C114.26 30.55 117.27 30.3 120.11 29.83C120.68 29.73 121.29 29.92 121.85 29.83C129.32 28.58 136.62 26.48 142.21 20.89C143.78 19.32 145.32 17.41 145.69 15.17C146.41 10.86 143.1 7.2 140.97 4C145.5 4.5 150.09 6.53 154.13 8.55C170.46 16.72 182.28 26.11 185.42 44.97C183.17 44.97 180.92 44.6 178.72 44.23C177.19 43.97 175.53 44.48 174 44.23C167.2 43.09 152.87 44.06 148.17 49.69C144.57 54.02 146.25 54.11 145.44 58.13C145.39 58.42 145.03 58.43 144.95 58.63C144.55 58.67 144.37 59.11 143.95 59.04C142.9 58.87 141.98 57.81 140.97 57.47C134.33 55.26 127.16 54.28 120.61 57.55C114.75 60.48 110.35 64.83 106.21 69.81C104.41 71.97 102.74 76.01 100.99 77.75C100.66 78.09 100.34 77.85 100 78Z'/%3E%3C/g%3E%3C/svg%3E") center / contain no-repeat; }
+.empty { max-width: 56ch; margin-left: auto; margin-right: auto; }
+.card > .empty, .card.empty { max-width: none; }
+
+/* -- Réglages : barre de sections collante -- */
+.secbar { position: sticky; top: -26px; z-index: 4; margin: 0 -8px var(--gap); padding: 10px 8px; flex-wrap: nowrap; overflow-x: auto;
+  background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(10px); border-radius: 0 0 16px 16px; }
+.secbar::-webkit-scrollbar { height: 0; }
+.secbar .chip { flex: none; }
+.page .card[id^="set-"] { scroll-margin-top: 64px; }
+:root[data-potato="1"] .secbar { backdrop-filter: none; background: var(--bg); }
+
+
+/* =====================================================================================
+   v1.5.9 (2) — nouvelles options : couleur d'accent, temps de jeu, jeux surveillés, sauvegarde, raccourcis
+   ===================================================================================== */
+
+/* -- Couleur d'accent des thèmes Clair / Sombre / Auto (bleu = valeurs par défaut ci-dessus) -- */
+:root[data-accent="violet"]:is([data-theme="light"], [data-theme="auto"]) { --acc:#5B3FD6; --acc2:#7A5CF5; --pri:#6646EC; --pri-h:#7656F2; --acc-soft:color-mix(in srgb, #7A5CF5 13%, transparent); --hover:color-mix(in srgb, #7A5CF5 9%, transparent); }
+:root[data-accent="violet"][data-theme="dark"] { --acc:#C1B2FF; --acc2:#9479FF; --pri:#7C5CFA; --pri-h:#9077FF; --acc-soft:color-mix(in srgb, #9479FF 17%, transparent); --hover:color-mix(in srgb, #9479FF 12%, transparent); }
+:root[data-accent="vert"]:is([data-theme="light"], [data-theme="auto"]) { --acc:#0B6E46; --acc2:#17A066; --pri:#0F8552; --pri-h:#129760; --acc-soft:color-mix(in srgb, #17A066 13%, transparent); --hover:color-mix(in srgb, #17A066 9%, transparent); }
+:root[data-accent="vert"][data-theme="dark"] { --acc:#86E6B6; --acc2:#30C584; --pri:#147F51; --pri-h:#178E5B; --acc-soft:color-mix(in srgb, #30C584 17%, transparent); --hover:color-mix(in srgb, #30C584 12%, transparent); }
+:root[data-accent="orange"]:is([data-theme="light"], [data-theme="auto"]) { --acc:#A4480A; --acc2:#EF7A1F; --pri:#CC5A0B; --pri-h:#DB660F; --acc-soft:color-mix(in srgb, #EF7A1F 13%, transparent); --hover:color-mix(in srgb, #EF7A1F 9%, transparent); }
+:root[data-accent="orange"][data-theme="dark"] { --acc:#FFB98A; --acc2:#FF8E45; --pri:#B9580E; --pri-h:#C76212; --acc-soft:color-mix(in srgb, #FF8E45 17%, transparent); --hover:color-mix(in srgb, #FF8E45 12%, transparent); }
+:root[data-accent="rose"]:is([data-theme="light"], [data-theme="auto"]) { --acc:#A81F60; --acc2:#E64593; --pri:#C92A76; --pri-h:#D93684; --acc-soft:color-mix(in srgb, #E64593 13%, transparent); --hover:color-mix(in srgb, #E64593 9%, transparent); }
+:root[data-accent="rose"][data-theme="dark"] { --acc:#FFA6CF; --acc2:#FF63AC; --pri:#C93579; --pri-h:#D64486; --acc-soft:color-mix(in srgb, #FF63AC 17%, transparent); --hover:color-mix(in srgb, #FF63AC 12%, transparent); }
+:root[data-accent="cyan"]:is([data-theme="light"], [data-theme="auto"]) { --acc:#006A82; --acc2:#0AA2C2; --pri:#0A7F9C; --pri-h:#0C90AF; --acc-soft:color-mix(in srgb, #0AA2C2 13%, transparent); --hover:color-mix(in srgb, #0AA2C2 9%, transparent); }
+:root[data-accent="cyan"][data-theme="dark"] { --acc:#86E3F5; --acc2:#28C4E6; --pri:#087893; --pri-h:#0A86A3; --acc-soft:color-mix(in srgb, #28C4E6 17%, transparent); --hover:color-mix(in srgb, #28C4E6 12%, transparent); }
+@media (prefers-color-scheme: dark) {
+  :root[data-accent="violet"][data-theme="auto"] { --acc:#C1B2FF; --acc2:#9479FF; --pri:#7C5CFA; --pri-h:#9077FF; --acc-soft:color-mix(in srgb, #9479FF 17%, transparent); --hover:color-mix(in srgb, #9479FF 12%, transparent); }
+  :root[data-accent="vert"][data-theme="auto"] { --acc:#86E6B6; --acc2:#30C584; --pri:#147F51; --pri-h:#178E5B; --acc-soft:color-mix(in srgb, #30C584 17%, transparent); --hover:color-mix(in srgb, #30C584 12%, transparent); }
+  :root[data-accent="orange"][data-theme="auto"] { --acc:#FFB98A; --acc2:#FF8E45; --pri:#B9580E; --pri-h:#C76212; --acc-soft:color-mix(in srgb, #FF8E45 17%, transparent); --hover:color-mix(in srgb, #FF8E45 12%, transparent); }
+  :root[data-accent="rose"][data-theme="auto"] { --acc:#FFA6CF; --acc2:#FF63AC; --pri:#C93579; --pri-h:#D64486; --acc-soft:color-mix(in srgb, #FF63AC 17%, transparent); --hover:color-mix(in srgb, #FF63AC 12%, transparent); }
+  :root[data-accent="cyan"][data-theme="auto"] { --acc:#86E3F5; --acc2:#28C4E6; --pri:#087893; --pri-h:#0A86A3; --acc-soft:color-mix(in srgb, #28C4E6 17%, transparent); --hover:color-mix(in srgb, #28C4E6 12%, transparent); }
+}
+/* Couvertures sans image : suivent la couleur d'accent */
+:root:is([data-theme="light"], [data-theme="dark"], [data-theme="auto"]) .tile-cover,
+:root:is([data-theme="light"], [data-theme="dark"], [data-theme="auto"]) .game-cover:not(.fav):not(.img),
+:root:is([data-theme="light"], [data-theme="dark"], [data-theme="auto"]) .exe-ico { background-image: linear-gradient(135deg, var(--acc2), color-mix(in srgb, var(--pri) 62%, #000)); }
+
+/* Pastilles de couleur (Réglages → Apparence) */
+.swatches { display: flex; gap: 8px; flex-wrap: wrap; }
+.swatch { width: 30px; height: 30px; border-radius: 50%; border: 0; padding: 0; cursor: pointer; background: var(--c); box-shadow: 0 0 0 2px var(--card), 0 0 0 3px color-mix(in srgb, var(--text) 14%, transparent); transition: transform .15s var(--ease), box-shadow .15s; }
+.swatch:hover { transform: scale(1.08); }
+.swatch.on { box-shadow: 0 0 0 3px var(--card), 0 0 0 5px var(--c); }
+.swatch.on::after { content: ""; display: block; width: 100%; height: 100%; background: #fff; -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 12.5 4 4 8-9'/%3E%3C/svg%3E") center / 16px no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 12.5 4 4 8-9'/%3E%3C/svg%3E") center / 16px no-repeat; }
+.sw-bleu { --c: #2563F2; } .sw-violet { --c: #6D4AF0; } .sw-vert { --c: #12925B; } .sw-orange { --c: #E06C12; } .sw-rose { --c: #D93684; } .sw-cyan { --c: #0891B2; }
+:root:not([data-theme="light"]):not([data-theme="dark"]):not([data-theme="auto"]) .swatches { opacity: .45; }
+
+/* Temps de jeu */
+.pt-top { display: grid; grid-template-columns: 1fr 1fr; gap: var(--gap); margin-bottom: var(--gap); }
+.pt-top > .card { margin: 0; display: flex; flex-direction: column; gap: 6px; }
+.pt-big { font-size: 34px; font-weight: 750; letter-spacing: -.02em; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.pt-today.over .pt-big { color: var(--warn); }
+.bar.pt-lim { margin: 4px 0 6px; }
+.pt-today.over .bar > i { background: var(--warn); }
+.pt-chart { position: relative; display: grid; grid-template-columns: repeat(14, 1fr); gap: 8px; height: 190px; align-items: end; padding: 18px 2px 0; }
+.pt-col { position: relative; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; min-width: 0; padding-bottom: 20px; }
+.pt-col > i { display: block; width: 100%; max-width: 34px; border-radius: 7px 7px 3px 3px; background: color-mix(in srgb, var(--acc2) 45%, var(--card2)); transition: height .4s var(--ease); }
+.pt-col.today > i { background: linear-gradient(180deg, var(--acc2), var(--pri)); }
+.pt-col.over > i { background: color-mix(in srgb, var(--warn) 70%, var(--card2)); }
+.pt-val { font-size: 10.5px; color: var(--muted); margin-bottom: 4px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pt-lbl { position: absolute; bottom: 0; font-size: 11px; color: var(--muted); }
+.pt-col.today .pt-lbl { color: var(--acc); font-weight: 700; }
+/* Zone des barres = hauteur du graphique moins 18 px (haut) et 20 px (libellés) : la ligne est placée sur la même échelle. */
+.pt-limline { position: absolute; left: 0; right: 0; height: 0; bottom: calc(20px + (100% - 38px) * var(--f, 0)); border-top: 2px dashed color-mix(in srgb, var(--warn) 70%, transparent); pointer-events: none; z-index: 1; }
+@media (max-width: 760px) { .pt-top { grid-template-columns: 1fr; } .pt-chart { gap: 4px; } .pt-val { display: none; } }
+:root[data-theme="batman"] .pt-col.today > i { background: linear-gradient(180deg, var(--acc2), #C99A00); box-shadow: 0 0 14px -2px rgba(255,209,0,.5); }
+
+/* Jeux surveillés */
+.ga-list { margin: 4px 0 6px; }
+.ga-chip { display: inline-flex; align-items: center; gap: 4px; padding-right: 5px; cursor: default; }
+.ga-x { display: grid; place-items: center; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 50%; background: none; color: inherit; cursor: pointer; opacity: .7; }
+.ga-x:hover { opacity: 1; background: color-mix(in srgb, currentColor 15%, transparent); }
+.ga-x .glyph svg { width: 12px; height: 12px; }
+.ga-sugg { margin-top: 10px; }
+.digest-prev { white-space: pre-wrap; font: 13px/1.55 "Segoe UI", system-ui, sans-serif; }
+
+/* Sauvegarde automatique */
+.bk-dir { display: block; margin-top: 2px; font-size: 12px; color: var(--text); overflow-wrap: anywhere; }
+
+/* Raccourcis clavier */
+.kbd-list { display: grid; gap: 2px; }
+.kbd-row { display: grid; grid-template-columns: minmax(200px, 260px) 1fr; align-items: center; gap: 16px; padding: 8px 0; border-top: 1px solid var(--line); }
+.kbd-row:first-child { border-top: 0; }
+kbd { display: inline-block; min-width: 24px; padding: 3px 8px; border-radius: 7px; font: 600 12px/1.3 "Segoe UI", system-ui, sans-serif; text-align: center; color: var(--text);
+  background: var(--card2); box-shadow: inset 0 -2px 0 color-mix(in srgb, var(--text) 16%, transparent), 0 0 0 1px var(--line); }
+@media (max-width: 640px) { .kbd-row { grid-template-columns: 1fr; gap: 4px; } }
+:root[data-theme="batman"] .pt-col.over > i, :root[data-theme="joker"] .pt-col.over > i, :root[data-theme="inde"] .pt-col.over > i { background: color-mix(in srgb, var(--bad) 75%, var(--card2)); }
+.pt-today.over .bar > i { background: var(--bad); } .pt-today.over .pt-big { color: var(--bad); }

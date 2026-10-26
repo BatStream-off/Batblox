@@ -6,7 +6,7 @@ const crypto = require("crypto");
 const { app, BrowserWindow, Tray, Menu, Notification, ipcMain, dialog, shell, session, safeStorage, nativeImage, nativeTheme, net } = require("electron");
 
 const { Storage } = require("./core/storage");
-const { DEFAULT_SETTINGS, merge, DISCORD_RE, NTFY_TOPIC_RE, PROXY_DOMAIN_RE, trackPatch } = require("./core/defaults");
+const { DEFAULT_SETTINGS, merge, DISCORD_RE, NTFY_TOPIC_RE, PROXY_DOMAIN_RE, trackPatch, START_PAGES, ACCENTS } = require("./core/defaults");
 const { makePublicFetch } = require("./core/publicnet");
 const { Vault } = require("./core/security");
 const { Logger } = require("./core/logger");
@@ -21,6 +21,8 @@ const { RichPresence } = require("./core/rpc");
 const { runDiagnostics } = require("./core/netdiag");
 const { Executor } = require("./core/executor");
 const { Updater } = require("./core/updater");
+const { PlayTime } = require("./core/playtime");
+const { Scheduler } = require("./core/scheduler");
 
 const APP_ID = "app.batblox.desktop";
 const ROOT_URL = "https://www.roblox.com";
@@ -31,7 +33,7 @@ app.setAppUserModelId(APP_ID);
 if (!app.requestSingleInstanceLock()) { app.quit(); }
 
 let win = null, tray = null, quitting = false;
-let storage, logger, settings, accounts, notifier, monitor, launcher, maintenance, custom, data, rpc, vault, executor, updater;
+let storage, logger, settings, accounts, notifier, monitor, launcher, maintenance, custom, data, rpc, vault, executor, updater, playtime, scheduler;
 const avatarCache = new Map();
 
 // ---------------------------------------------------------------- Réglages
@@ -57,6 +59,22 @@ function sanitize(next) {
   s.updates.checkOnStart = s.updates.checkOnStart !== false;
   if (!CLIENT_IDS.includes(s.launcher.client)) s.launcher.client = "auto";
   s.launcher.customExe = /^[A-Za-z]:\\[^\0]{1,250}\.exe$/i.test(String(s.launcher.customExe || "")) ? String(s.launcher.customExe) : "";
+  // v1.5.9 : options d'affichage, notifications, temps de jeu, sauvegarde
+  s.appearance.intro = s.appearance.intro !== false;
+  s.appearance.zoom = Math.min(130, Math.max(80, Math.round((Number(s.appearance.zoom) || 100) / 10) * 10));
+  if (!START_PAGES.includes(s.appearance.startPage)) s.appearance.startPage = "home";
+  if (!ACCENTS.includes(s.appearance.accent)) s.appearance.accent = "bleu";
+  s.notifications.quietInGame = !!s.notifications.quietInGame;
+  { const seen = new Set(); // sans doublon, majuscules ignorées
+    s.notifications.gameAlerts = (Array.isArray(s.notifications.gameAlerts) ? s.notifications.gameAlerts : [])
+      .map((x) => String(x == null ? "" : x).replace(/[\u0000-\u001f]/g, "").trim().slice(0, 60))
+      .filter((x) => x && !seen.has(x.toLowerCase()) && seen.add(x.toLowerCase())).slice(0, 30); }
+  s.notifications.digest.enabled = !!s.notifications.digest.enabled;
+  if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(String(s.notifications.digest.time || ""))) s.notifications.digest.time = "21:00";
+  s.playtime.dailyLimitMin = Math.min(1440, Math.max(0, Math.round(Number(s.playtime.dailyLimitMin) || 0)));
+  s.backup.enabled = !!s.backup.enabled;
+  s.backup.dir = /^(?:[A-Za-z]:\\|\\\\|\/)[^\0]{0,400}$/.test(String(s.backup.dir || "")) ? String(s.backup.dir) : "";
+  s.backup.keep = Math.min(52, Math.max(1, Math.round(Number(s.backup.keep) || 8)));
   s.launcher.favorites = (s.launcher.favorites || []).filter((f) => f && /^\d{1,19}$/.test(String(f.placeId))).slice(0, 50).map((f) => ({ placeId: String(f.placeId), name: String(f.name || f.placeId).slice(0, 60) }));
   return s;
 }
@@ -171,10 +189,15 @@ function loginViaWindow() {
 }
 
 // ---------------------------------------------------------------- Notifications Windows
-function desktopNotify(title, body, { sound } = {}) {
+function desktopNotify(title, body, { sound, join, page } = {}) {
   if (!Notification.isSupported()) return;
   const n = new Notification({ title, body, icon: ICON, silent: !sound });
-  n.on("click", () => { showWindow(); send("navigate", "history"); });
+  // join : alerte « jeu surveillé » → un clic rejoint l'ami dans son jeu (même chemin que le bouton « Rejoindre »).
+  n.on("click", () => {
+    showWindow();
+    if (join && /^\d+$/.test(String(join))) launcher.join(String(join)).catch((e) => send("toast", { text: "Impossible de rejoindre : " + e.message, kind: "bad" }));
+    else send("navigate", page || "history");
+  });
   n.show();
 }
 
@@ -194,7 +217,7 @@ const INTRO_BG = "#0F5FFD";
 let introPlayed = false;
 
 function createWindow(hidden) {
-  const intro = !hidden && !introPlayed;
+  const intro = !hidden && !introPlayed && settings.appearance.intro !== false;
   introPlayed = true;
   win = new BrowserWindow({
     width: 1180, height: 780, minWidth: 900, minHeight: 600, show: !hidden, title: "Batblox", icon: ICON, backgroundColor: intro ? INTRO_BG : windowBg(), autoHideMenuBar: true, frame: false,
@@ -206,8 +229,20 @@ function createWindow(hidden) {
   // F12 ou Ctrl+Maj+I : outils de développement (console de l'interface)
   win.webContents.on("before-input-event", (e, input) => {
     if (input.type !== "keyDown") return;
-    if (input.key === "F12" || (input.control && input.shift && input.key.toLowerCase() === "i")) { e.preventDefault(); win.webContents.toggleDevTools(); }
+    if (input.key === "F12" || (input.control && input.shift && input.key.toLowerCase() === "i")) { e.preventDefault(); win.webContents.toggleDevTools(); return; }
+    // Raccourcis clavier (interceptés ici : ils passent avant ceux du menu caché d'Electron, ex. Ctrl+R = recharger).
+    if (input.key === "F5" && !input.control && !input.alt) { e.preventDefault(); send("shortcut", "check"); return; }
+    if (!input.control || input.alt || input.meta) return;
+    const k = String(input.key || "").toLowerCase();
+    if (/^[1-9]$/.test(k) && !input.shift) { e.preventDefault(); send("shortcut", "nav" + k); }
+    else if (k === "l" && !input.shift) { e.preventDefault(); send("shortcut", "launch"); }
+    else if (k === "r") { e.preventDefault(); send("shortcut", "check"); }
+    else if (k === ",") { e.preventDefault(); send("shortcut", "settings"); }
+    else if (k === "=" || k === "+" || k === "add") { e.preventDefault(); setZoom(settings.appearance.zoom + 10); }
+    else if (k === "-" || k === "subtract") { e.preventDefault(); setZoom(settings.appearance.zoom - 10); }
+    else if (k === "0" && !input.shift) { e.preventDefault(); setZoom(100); }
   });
+  win.webContents.on("did-finish-load", applyZoom);
   win.webContents.setWindowOpenHandler(({ url }) => { openSafe(url); return { action: "deny" }; });
   win.webContents.on("will-navigate", (e, url) => { if (!url.startsWith("file://")) { e.preventDefault(); openSafe(url); } });
   win.on("close", (e) => {
@@ -217,6 +252,13 @@ function createWindow(hidden) {
   const winState = () => send("winstate", { maximized: !!(win && !win.isDestroyed() && (win.isMaximized() || win.isFullScreen())) });
   ["maximize", "unmaximize", "enter-full-screen", "leave-full-screen", "restore"].forEach((ev) => win.on(ev, winState));
   win.on("closed", () => { win = null; });
+}
+// Taille de l'interface (zoom de la page) : 80 à 130 %.
+function applyZoom() { if (win && !win.isDestroyed()) win.webContents.setZoomFactor((settings.appearance.zoom || 100) / 100); }
+function setZoom(z) {
+  z = Math.min(130, Math.max(80, Math.round(z / 10) * 10));
+  if (z === settings.appearance.zoom) return;
+  api["settings:set"]({ appearance: { zoom: z } });
 }
 function showWindow() { if (!win) createWindow(false); if (win.isMinimized()) win.restore(); win.show(); win.focus(); }
 function send(evt, payload) { if (win && !win.isDestroyed()) win.webContents.send("evt", evt, payload); }
@@ -546,7 +588,10 @@ const api = {
   "app:init": () => ({ settings, accounts: accounts.list(), active: accounts.active(), snapshot: monitor.snapshot(), version: app.getVersion(), windows: process.platform === "win32", encryption: vault.available() }),
   "settings:set": (patch) => {
     const before = settings;
+    // Listes : remplacées en entier (la fusion profonde garderait sinon les anciens éléments)
+    if (patch && patch.notifications && Array.isArray(patch.notifications.gameAlerts)) settings.notifications.gameAlerts = [];
     setSettings(sanitize(merge(settings, patch)));
+    if (before.appearance.zoom !== settings.appearance.zoom) applyZoom();
     app.setLoginItemSettings({ openAtLogin: !!settings.system.launchAtStartup, args: ["--cache"] });
     if (before.monitoring.intervalSec !== settings.monitoring.intervalSec || before.monitoring.enabled !== settings.monitoring.enabled) monitor.kick(800);
     rpc.sync().then(() => send("rpc", rpc.state())).catch(() => {});
@@ -743,7 +788,26 @@ const api = {
   "win:close": () => { if (win && !win.isDestroyed()) win.close(); return true; },   // passe par la logique « réduire dans la zone de notification »
   "intro:done": () => { if (win && !win.isDestroyed()) win.setBackgroundColor(windowBg()); return true; },   // fin de l'intro : le fond de la fenêtre reprend la couleur du thème
   "win:state": () => ({ maximized: !!(win && !win.isDestroyed() && (win.isMaximized() || win.isFullScreen())) }),
-  "app:quit": () => { quitting = true; app.quit(); return true; }
+  "app:quit": () => { quitting = true; app.quit(); return true; },
+
+  // ---- v1.5.9 : temps de jeu, résumé quotidien, sauvegarde automatique
+  "playtime:summary": () => { const id = accounts.activeId(); return id ? playtime.summary(id) : null; },
+  "playtime:clear": () => { playtime.clear(accounts.activeId()); return true; },
+  "digest:preview": () => scheduler.digestUnit(),
+  "digest:test": async () => {
+    const n = await scheduler.sendDigest();
+    if (!n) throw new Error("Active et configure Discord ou ntfy (page Discord) pour recevoir le résumé.");
+    return n;
+  },
+  "backup:pickDir": async () => {
+    const r = await dialog.showOpenDialog(win, { title: "Dossier des sauvegardes automatiques", properties: ["openDirectory", "createDirectory"] });
+    if (r.canceled || !r.filePaths.length) return null;
+    api["settings:set"]({ backup: { dir: r.filePaths[0] } });
+    return settings.backup.dir;
+  },
+  "backup:now": () => scheduler.backupNow(),
+  "backup:state": () => scheduler.status(),
+  "backup:open": async () => { if (!settings.backup.dir) return false; const err = await shell.openPath(settings.backup.dir); if (err) throw new Error(err); return true; }
 };
 
 function registerIpc() {
@@ -766,13 +830,15 @@ async function boot() {
   storage.set("settings", settings);
 
   accounts = new AccountManager({ storage, vault, sessions, logger });
-  notifier = new Notifier({ getSettings, desktop: desktopNotify, logger, fetchImpl: (u, i) => net.fetch(u, withTimeout(i)) });
+  playtime = new PlayTime({ storage, getSettings, logger });
+  notifier = new Notifier({ getSettings, desktop: desktopNotify, logger, fetchImpl: (u, i) => net.fetch(u, withTimeout(i)), isPlaying: () => playtime.playing });
   monitor = new Monitor({ storage, accounts, notifier, logger, getSettings });
   launcher = new RobloxLauncher({ execFile, openExternal: (u) => shell.openExternal(u), accounts, monitor, logger, getSettings });
   maintenance = new Maintenance({ launcher, accounts, logger, getSettings });
   custom = new Customization({ storage, launcher, logger, dataDir: app.getPath("userData") });
   data = new DataTools({ storage, monitor, accounts, getSettings, setSettings, logger });
   rpc = new RichPresence({ getSettings, launcher, monitor, accounts, logger });
+  scheduler = new Scheduler({ storage, getSettings, notifier, monitor, playtime, data, accounts, fs, logger, onBackup: (st) => send("backup", st) });
   executor = new Executor({
     storage, logger,
     openPath: (p) => shell.openPath(p),
@@ -820,6 +886,15 @@ async function boot() {
   monitor.on("favorites-migrated", () => { try { api["settings:set"]({ monitoring: { favorites: [] } }); } catch (e) { logger.error(e); } });
   monitor.on("update", () => { send("monitor", monitor.snapshot()); refreshTray(); });
   monitor.on("history", (entries) => send("history", entries.length));
+  // Temps de jeu : alimenté par mon propre statut à chaque vérification
+  monitor.on("mypresence", (accId, pres, ts) => { playtime.update(accId, pres, ts); send("playtime"); });
+  accounts.on("changed", () => playtime.stop());
+  playtime.on("stop", () => { const n = notifier.flushHeld(); if (n) logger.info(n + " notification(s) retenue(s) pendant la partie"); });
+  playtime.on("limit", ({ minutes }) => {
+    const h = Math.floor(minutes / 60), m = minutes % 60;
+    desktopNotify("⏰ Limite de temps de jeu atteinte", `Tu as joué ${h ? h + " h " + (m ? String(m).padStart(2, "0") + " min" : "") : m + " min"} aujourd'hui. Pense à faire une pause !`, { sound: true, page: "playtime" });
+  });
+  scheduler.start();
 
   monitor.start();
   Promise.resolve(rpc.sync()).catch(() => {});

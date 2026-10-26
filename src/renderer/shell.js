@@ -60,7 +60,7 @@ B.go = (id) => {
   // « Amis » et « Profils suivis » vivent désormais dans « Mon profil » (anciens liens et raccourcis conservés)
   if (id === "friends" || id === "watch") { B.pages.profile.tab = id; id = "profile"; }
   // « Historique », « Statistiques » et « Notifications » vivent désormais dans « Activité » (anciens liens conservés)
-  if (id === "history" || id === "stats" || id === "notifs") { B.pages.activity.tab = id; id = "activity"; }
+  if (id === "history" || id === "stats" || id === "notifs" || id === "playtime") { B.pages.activity.tab = id; id = "activity"; }
   if (!B.pages[id]) id = "home";
   B.page = id;
   if (id === "activity" && B.pages.activity.tab === "history") B.S.unread = 0;
@@ -84,6 +84,7 @@ B.renderPage = (entering) => {
 B.applyAppearance = () => {
   const a = B.S.settings.appearance, r = document.documentElement;
   r.dataset.theme = a.theme;
+  r.dataset.accent = a.accent || "bleu";
   r.dataset.potato = a.potato ? "1" : "0";
   r.dataset.anim = a.animations ? "1" : "0";
   r.dataset.shadow = a.shadows ? "1" : "0";
@@ -120,7 +121,7 @@ B.renderAccount = () => {
   const btn = h("button", { class: "acc-btn", title: "Compte actif : " + a.name, "aria-label": "Compte actif : " + a.label, onclick: () => B.go("accounts") },
     B.avatar(a.id, a.label, "sm", a.avatarUrl), h("span", { class: "nm" }, a.label), dot);
   const dots = h("button", { class: "dots", "aria-label": "Menu des comptes", "aria-haspopup": "menu", title: "Comptes" });
-  dots.textContent = "⋮";
+  B.label(dots, "⋮");
   dots.onclick = () => B.menu(dots, [
     { node: h("div", { class: "cur" }, B.avatar(a.id, a.label, "sm", a.avatarUrl), h("div", {}, h("b", {}, a.label), h("div", { class: "muted small" }, "Compte actuel · @" + a.name))) },
     "-",
@@ -170,7 +171,32 @@ B.onEvent = (evt, payload) => {
   else if (evt === "account") { B.S.active = payload; B.S.chatUnread = 0; B.renderNav(); B.renderAccount(); B.renderPage(); B.pollChat(); }
   else if (evt === "settings") { B.S.settings = payload; B.applyAppearance(); }
   else if (evt === "navigate") B.go(payload);
+  else if (evt === "shortcut") B.shortcut(payload);
+  else if (evt === "toast") { if (payload && payload.text) B.toast(payload.text, payload.kind); }
+  else if (evt === "playtime") { const p = B.pages[B.page]; if (p && p.onPlaytime) p.onPlaytime(); }
+  else if (evt === "backup") { B.S.backup = payload; const p = B.pages[B.page]; if (p && p.onBackup) p.onBackup(payload); }
   else if (evt === "launch") { B.go("home"); if (B.S.active && B.pages.home.launch) B.pages.home.launch(); }
   else if (evt === "update") { B.S.update = payload; if (payload && payload.latest) B.toast("Mise à jour disponible : Batblox v" + payload.latest.version + ". Va dans Réglages → Mises à jour.", "ok"); }
   else if (evt === "rpc") { const p = B.pages[B.page]; if (B.page === "discord" && p && p.state) p.state(); }
 };
+
+// ---------- Raccourcis clavier (reçus du processus principal, qui les intercepte avant le menu caché d'Electron) ----------
+// Ctrl+1…9 : pages du menu dans l'ordre · Ctrl+L : lancer Roblox · Ctrl+R / F5 : vérifier maintenant · Ctrl+, : réglages · Ctrl+ +/-/0 : taille.
+B.shortcut = (k) => {
+  if (document.querySelector(".scrim") || document.getElementById("intro")) return; // fenêtre ouverte ou intro en cours : on ne change pas de page
+  const m = /^nav(\d)$/.exec(k);
+  if (m) { const pages = B.NAV.filter((x) => Array.isArray(x)).map((x) => x[0]); const id = pages[Number(m[1]) - 1]; if (id) B.go(id); return; }
+  if (k === "settings") return B.go("settings");
+  if (!B.S.active) return;
+  if (k === "launch") { B.go("home"); if (B.pages.home.launch) B.pages.home.launch(); }
+  else if (k === "check") { B.toast("Vérification en cours…"); B.run(() => B.call("monitor:checkNow")); }
+};
+B.SHORTCUTS = [
+  ["Ctrl + 1 à 9", "Ouvrir les pages du menu, dans l'ordre (Accueil, Découvrir, Mon profil…)"],
+  ["Ctrl + L", "Lancer Roblox"],
+  ["Ctrl + R ou F5", "Vérifier maintenant"],
+  ["Ctrl + ,", "Ouvrir les réglages"],
+  ["Ctrl + + / Ctrl + −", "Agrandir / réduire l'interface"],
+  ["Ctrl + 0", "Taille normale (100 %)"],
+  ["Échap", "Passer l'intro, fermer une fenêtre ou un menu"]
+];

@@ -1128,3 +1128,109 @@ test("mise à jour : version portable → page de la release, rien n'est lancé 
   assert.equal(p.launched.length, 0);
   assert.equal((await makeUpdater(REL("v1.5.0")).u.install()).already, true);
 });
+
+// ---------------------------------------------------------------- v1.5.9 : temps de jeu, planification, notifications
+const { PlayTime, dayKey, addTime, splitByDay } = require("../src/main/core/playtime");
+const { Scheduler, digestDue, backupDue, toPrune, buildDigest } = require("../src/main/core/scheduler");
+const { matchesGame } = require("../src/main/core/notifier");
+
+const memStore = () => { const m = new Map(); return { get: (n, f) => { if (!m.has(n)) m.set(n, typeof f === "function" ? f() : f); return m.get(n); }, set: (n, v) => m.set(n, v), dirty() {} }; };
+const ptSettings = (extra) => () => merge(DEFAULT_SETTINGS, extra || {});
+
+test("temps de jeu : découpage à minuit et cumul par jeu", () => {
+  const a = new Date(2026, 9, 25, 23, 50).getTime(), b = new Date(2026, 9, 26, 0, 20).getTime();
+  assert.deepEqual(splitByDay(a, b), [["2026-10-25", 600], ["2026-10-26", 1200]]);
+  const days = {};
+  addTime(days, "2026-10-26", { pid: "1", name: "A" }, 60);
+  addTime(days, "2026-10-26", { pid: "1", name: "A" }, 30);
+  addTime(days, "2026-10-26", { pid: "2", name: "B" }, 10);
+  assert.equal(days["2026-10-26"].s, 100);
+  assert.equal(days["2026-10-26"].g["1"].s, 90);
+});
+
+test("temps de jeu : compte les vérifications en jeu, plafonne les trous, émet start/stop", () => {
+  const pt = new PlayTime({ storage: memStore(), getSettings: ptSettings(), maxGapMs: () => 180000 });
+  const ev = [];
+  pt.on("start", () => ev.push("start")); pt.on("stop", () => ev.push("stop"));
+  const t0 = new Date(2026, 9, 26, 15, 0).getTime();
+  const g = { type: 2, place: "Blox Fruits", pid: "2753915549" };
+  pt.update("42", g, t0);                 // début : rien compté
+  pt.update("42", g, t0 + 60000);         // +60 s
+  pt.update("42", g, t0 + 60000 + 3600000); // veille d'une heure : seulement 180 s comptées
+  assert.equal(pt.playing, true);
+  pt.update("42", { type: 1 }, t0 + 60000 + 3600000 + 60000); // sorti du jeu : la dernière minute compte
+  assert.equal(pt.playing, false);
+  assert.deepEqual(ev, ["start", "stop"]);
+  assert.equal(pt.today("42", t0), 60 + 180 + 60);
+  const s = pt.summary("42", t0);
+  assert.equal(s.series.length, 14);
+  assert.equal(s.top[0].name, "Blox Fruits");
+});
+
+test("temps de jeu : la limite quotidienne prévient une seule fois par jour", () => {
+  const pt = new PlayTime({ storage: memStore(), getSettings: ptSettings({ playtime: { dailyLimitMin: 2 } }), maxGapMs: () => 600000 });
+  let n = 0; pt.on("limit", () => n++);
+  const t0 = new Date(2026, 9, 26, 10, 0).getTime(), g = { type: 2, place: "X", pid: "1" };
+  for (let i = 0; i <= 5; i++) pt.update("1", g, t0 + i * 60000);
+  assert.equal(n, 1);
+});
+
+test("planification : heure du résumé, sauvegarde hebdomadaire, rotation", () => {
+  const now = new Date(2026, 9, 26, 21, 5);
+  assert.equal(digestDue("21:00", "", now), true);
+  assert.equal(digestDue("21:00", dayKey(now.getTime()), now), false);
+  assert.equal(digestDue("22:00", "", now), false);
+  assert.equal(digestDue("25:00", "", now), false);
+  assert.equal(backupDue(0), true);
+  assert.equal(backupDue(Date.now() - 86400000), false);
+  const names = ["batblox-sauvegarde-auto-2026-10-01.json", "batblox-sauvegarde-auto-2026-10-08.json", "batblox-sauvegarde-auto-2026-10-15.json", "autre.json", "batblox-sauvegarde-2026-10-01.json"];
+  assert.deepEqual(toPrune(names, 2), ["batblox-sauvegarde-auto-2026-10-01.json"]);
+});
+
+test("résumé quotidien : compte les événements du jour du compte actif", () => {
+  const now = new Date(2026, 9, 26, 21, 0).getTime();
+  const e = (type, name, ts = now - 3600000, acc = "1") => ({ ts, type, friendName: name, acc });
+  const u = buildDigest([e("added", "Bane"), e("added", "Robin"), e("removed", "Joker"), e("added", "Hier", now - 2 * 86400000), e("added", "Autre", now - 60000, "2")],
+    { today: 5400, todayGames: [{ id: "1", name: "Blox Fruits", s: 5400 }] }, now, "1");
+  assert.match(u.text, /2 nouvel\(s\) ami\(s\)/);
+  assert.match(u.text, /Bane, Robin/);
+  assert.match(u.text, /1 h 30 min/);
+  assert.doesNotMatch(u.text, /Hier|Autre/);
+  assert.match(buildDigest([], null, now).text, /Journée calme/);
+});
+
+test("sauvegarde automatique : écrit, fait tourner les copies, signale un dossier absent", () => {
+  const dir = tmp();
+  const getSettings = ptSettings({ backup: { enabled: true, dir, keep: 2 } });
+  const sch = new Scheduler({ storage: memStore(), getSettings, notifier: {}, monitor: {}, data: { exportAll: () => ({ app: "batblox" }) }, accounts: {}, fs, logger });
+  for (const d of [1, 8, 15]) sch.backupNow(new Date(2026, 9, d, 12));
+  const files = fs.readdirSync(dir).sort();
+  assert.deepEqual(files, ["batblox-sauvegarde-auto-2026-10-08.json", "batblox-sauvegarde-auto-2026-10-15.json"]);
+  assert.equal(JSON.parse(fs.readFileSync(path.join(dir, files[1]), "utf8")).app, "batblox");
+  const bad = new Scheduler({ storage: memStore(), getSettings: ptSettings({ backup: { enabled: true, dir: path.join(dir, "absent"), keep: 2 } }), notifier: {}, monitor: {}, data: { exportAll: () => ({}) }, accounts: {}, fs, logger });
+  assert.throws(() => bad.backupNow(new Date()), /introuvable/);
+  assert.match(bad.status().error, /introuvable/);
+  assert.equal(backupDue(bad.state.backupAt, Date.now()), false); // pas de nouvel essai chaque minute
+});
+
+test("notifications : jeux surveillés, silence en jeu puis résumé de fin de partie", () => {
+  assert.equal(matchesGame({ type: "ingame", place: "[UPDATE] Blox Fruits", pid: "9" }, ["blox fruits"]), true);
+  assert.equal(matchesGame({ type: "ingame", place: "Brookhaven", pid: "9" }, ["9"]), true);
+  assert.equal(matchesGame({ type: "ingame", place: "Brookhaven", pid: "9" }, ["Adopt"]), false);
+  assert.equal(matchesGame({ type: "online" }, ["x"]), false);
+  let playing = true;
+  const shown = [];
+  const S = merge(DEFAULT_SETTINGS, { notifications: { quietInGame: true, gameAlerts: ["Tower"], events: { ingame: false } } });
+  const n = new Notifier({ getSettings: () => S, desktop: (t, b, o) => shown.push({ t, b, o }), logger, isPlaying: () => playing });
+  const ev = [{ type: "online", friendId: "5", friendName: "Bane" }, { type: "ingame", friendId: "6", friendName: "Robin", place: "Tower of Hell", pid: "1" }];
+  assert.equal(n.notify(ev, new Date(2026, 9, 26, 15)), 2);
+  assert.equal(shown.length, 0);          // retenu pendant la partie
+  playing = false;
+  assert.equal(n.flushHeld(), 2);
+  assert.equal(shown.length, 1);
+  assert.match(shown[0].t, /Pendant ta partie : 2 alertes/);
+  assert.equal(n.flushHeld(), 0);
+  // Hors partie, l'alerte de jeu surveillé est cliquable (rejoindre l'ami)
+  n.notify([ev[1]], new Date(2026, 9, 26, 15));
+  assert.equal(shown[1].o.join, "6");
+});

@@ -4,7 +4,11 @@ const SCHEMA_VERSION = 1;
 
 const DEFAULT_SETTINGS = {
   schemaVersion: SCHEMA_VERSION,
-  appearance: { theme: "auto", potato: false, animations: true, shadows: true, effects: true, lightning: true, clickSound: true, clickVolume: 40 },
+  appearance: { theme: "auto", potato: false, animations: true, shadows: true, effects: true, lightning: true, clickSound: true, clickVolume: 40,
+    intro: true,          // intro vidéo au lancement
+    zoom: 100,            // taille de l'interface en % (80 à 130)
+    startPage: "home",    // page affichée à l'ouverture
+    accent: "bleu" },     // couleur d'accent des thèmes Clair / Sombre / Auto
   monitoring: {
     enabled: true,
     intervalSec: 60,
@@ -26,8 +30,13 @@ const DEFAULT_SETTINGS = {
     events: { added: true, removed: true, renamed: true, online: true, offline: true, ingame: true, req_in: true, followers: false, followings: false },
     quiet: { enabled: false, from: "23:00", to: "07:00" },
     discord: { enabled: false, url: "" },
-    ntfy: { enabled: false, server: "https://ntfy.sh", topic: "" }
+    ntfy: { enabled: false, server: "https://ntfy.sh", topic: "" },
+    quietInGame: false,                        // notifications Windows retenues pendant que je joue, résumé à la fin de la partie
+    gameAlerts: [],                            // jeux surveillés : nom (ou partie du nom) ou identifiant de jeu
+    digest: { enabled: false, time: "21:00" }  // résumé quotidien envoyé sur Discord / ntfy
   },
+  playtime: { dailyLimitMin: 0 },              // limite de temps de jeu par jour, en minutes (0 = aucune)
+  backup: { enabled: false, dir: "", keep: 8 }, // sauvegarde automatique hebdomadaire
   network: { publicProxy: "" }, // domaine d'un relais pour les données publiques des profils suivis (vide = direct, sans session)
   system: { trayOnClose: true, startMinimized: false, launchAtStartup: false },
   launcher: { favorites: [], autoReapplyCustom: true, client: "auto", customExe: "" }, // client : auto | roblox | bloxstrap | fishstrap | voidstrap | custom
@@ -67,4 +76,7 @@ const NTFY_TOPIC_RE = /^[A-Za-z0-9_-]{1,64}$/;
 
 const HISTORY_TYPES = ["added", "removed", "renamed", "online", "offline", "ingame", "leftgame", "req_in", "req_accepted", "req_gone", "followers", "followings"];
 
-module.exports = { SCHEMA_VERSION, DEFAULT_SETTINGS, merge, isObj, DISCORD_RE, NTFY_TOPIC_RE, PROXY_DOMAIN_RE, HISTORY_TYPES, trackPatch };
+const START_PAGES = ["home", "discover", "profile", "activity", "messages", "roblox"];
+const ACCENTS = ["bleu", "violet", "vert", "orange", "rose", "cyan"];
+
+module.exports = { START_PAGES, ACCENTS, SCHEMA_VERSION, DEFAULT_SETTINGS, merge, isObj, DISCORD_RE, NTFY_TOPIC_RE, PROXY_DOMAIN_RE, HISTORY_TYPES, trackPatch };

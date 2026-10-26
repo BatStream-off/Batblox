@@ -314,6 +314,8 @@ class Monitor extends EventEmitter {
     const pres = await client.presence(all);
     Object.assign(this.live, pres);
     const mine = wantMe && pres[acc.id];
+    // Mon propre statut : sert au temps de jeu et à « Silence pendant que je joue » (émis avant les notifications de ce passage).
+    if (wantMe) this.emit("mypresence", acc.id, pres[acc.id] || null, Date.now());
     if (mine && mine.type === 2 && mine.pid) this.noteGame(acc.id, { pid: mine.pid, name: mine.place });
     const ts = Date.now();
     const old = st.presence || {};
